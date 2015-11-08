@@ -41,7 +41,8 @@ class PostTestingHandler(BaseHandler):
         request_object = urllib2.Request("https://pascra619.appspot.com/scrap/page", post_data_encoded,http_headers)
         response = urllib2.urlopen(request_object)
         logging.info('response')
-        logging.info(response)
+        #logging.info(response.read())
+        self.response.write(response.read())
         
 
 class ScrappingHandler(BaseHandler):
@@ -50,7 +51,7 @@ class ScrappingHandler(BaseHandler):
     def post(self,**kwargs):
         response = PageScraper.fetch(self.request.get('json'))
         logging.info('response')
-        logging.info(json.dumps(response))
+        logging.info(response)
         self.response.write(json.dumps(response))
         
 
