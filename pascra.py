@@ -2,7 +2,7 @@
 from google.appengine.api import taskqueue, users
 import json
 import logging
-from scrap import PageScraper, WebsiteScraper
+from scrap import WebsiteScraper
 import urllib
 import urllib2
 import webapp2
@@ -26,7 +26,7 @@ class MiscHandler(BaseHandler):
 
 class RequestTestingHandler(BaseHandler):
     def get(self,**kwargs):
-        test_kukkiapple_order_scrapping =   {
+        test_kukkiapple_order_scraping =   {
                                              "login":{"url":"https://apple.kukkia.jp/bin/login.php","login":{"name":"login_id","value":"kukkia"},"password":{"name":"login_pw","value":"kukkiapple"},"fields":[{"name":"bst","value":"1024"},{"name":"bsy","value":"1280"}]},
                                              "scrap_list":[
                                                              {
@@ -72,7 +72,7 @@ class RequestTestingHandler(BaseHandler):
                                                               }
                                                            ]
                                             }
-        test_kukkiapple_order_list_scrapping =  {
+        test_kukkiapple_order_list_scraping =  {
                                                  "login":{"url":"https://apple.kukkia.jp/bin/login.php","login":{"name":"login_id","value":"kukkia"},"password":{"name":"login_pw","value":"kukkiapple"},"fields":[{"name":"bst","value":"1024"},{"name":"bsy","value":"1280"}]},
                                                  "scrap_list":[
                                                                  {
@@ -93,7 +93,7 @@ class RequestTestingHandler(BaseHandler):
                                                         ]
                                                 }
         s = WebsiteScraper()
-        scraps = s.scrap(test_kukkiapple_order_list_scrapping)
+        scraps = s.scrap(test_kukkiapple_order_list_scraping)
         logging.info(scraps)
         self.render_response('/pascra_request.html', **kwargs)
 
@@ -116,12 +116,12 @@ class RequestTestingHandler(BaseHandler):
         #logging.info(response.read())
         self.response.write(response.read())
 
-class ScrappingHandler(BaseHandler):
+class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/pascra.html', **kwargs)
     def post(self,**kwargs):
-        scrapper = WebsiteScraper()
-        scraps = scrapper.scrap(self.request.get('json'))
+        scraper = WebsiteScraper()
+        scraps = scraper.scrap(self.request.get('json'))
         logging.info('response')
         logging.info(scraps)
         self.response.write(json.dumps(scraps))
@@ -132,7 +132,7 @@ config = {}
 
 app = webapp2.WSGIApplication([
                                webapp2.Route(r'/scrap/page/request', RequestTestingHandler),
-                               webapp2.Route(r'/scrap/page', ScrappingHandler),
+                               webapp2.Route(r'/scrap/page', ScrapingHandler),
                                ('.*', MiscHandler)
                               ],
                               config=config,

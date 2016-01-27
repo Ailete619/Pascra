@@ -1,0 +1,5 @@
+queue:
+- name: keywords
+  rate: 1/s
+- name: sources
+  rate: 1/s
