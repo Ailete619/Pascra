@@ -7,6 +7,8 @@
 
 import datetime
 from google.appengine.api import urlfetch
+from google.appengine.ext import deferred
+from google.appengine.runtime import DeadlineExceededError
 from io import StringIO
 import json
 import logging
@@ -21,33 +23,70 @@ from datetime import date
 
 class WebsiteScraper(object):
     websiteCookies = {}
+    @classmethod
+    def parse_set_cookie(cls, set_cookie):
+        logging.info(cls.__name__+".parse_set_cookie("+str(set_cookie)+")")
+        if set_cookie:
+            cookiePairList = [cookiePair.split("=") for cookiePair in set_cookie.split(";")]
+            return {cookiePairList[0][0]:{"value":cookiePairList[0][1]}}
+        return None
+    def extract(self, element, extractor_list):
+        if extractor_list:
+            scraps = {}
+            for extractor in extractor_list:
+                if extractor["type"]=="html":
+                    scraps[extractor["type"]] = etree.tostring(element, method='html', encoding="utf-8")
+                elif extractor["type"]=="text":
+                    scraps[extractor["type"]] = etree.tostring(element, method='text', encoding="utf-8")
+                elif extractor["type"]=="attribute":
+                    if extractor["name"] in element.attrib:
+                        scraps[extractor["type"]] = element.attrib[extractor["name"]]
+                    else:
+                        logging.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no attribute '"+extractor["name"]+"' !")
+                elif extractor["type"]=="method":
+                    if extractor["name"]=="text":
+                        scraps[extractor["type"]] = element.text
+                    else:
+                        logging.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no method '"+extractor["name"]+"' !")
+                else:
+                    scraps[extractor["type"]] = etree.tostring(element, method='html', encoding="utf-8")
+            return scraps
+        else:
+            return None
+    def __init__(self, GAE_request):
+        self.response_cookies = {}
+        self.response_data = []
+        self.response_request = {}
+        self.scrap_list = []
+        self.target_cookies = {}
+        cookie = self.parse_set_cookie(GAE_request.headers["Set-Cookie"])
+        if cookie:
+            self.response_cookies.update(cookie)
+        data_request = json.loads(GAE_request.get('json'))
+        if "login" in data_request:
+            self.login(data_request["login"])
+        self.scrap_list = data_request["scrap_list"]
+        for item in self.scrap_list:
+            if "url" in item:
+                item["urls"] = [item["url"]]
+                del item["url"]
+            if not "urls" in item:
+                logging.warning("Error: no urls to scrap in this item!")
+                continue
+            if "for_field" in item:
+                self.scrapURLForField()
+            else:
+                self.scrapURLList()
     def login(self, data):
-        http_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         post_data = {data["login"]["name"]:data["login"]["value"],data["password"]["name"]:data["password"]["value"]}
-        for field in data["fields"]:
-            post_data[field["name"]] = field["value"]
-        post_data_encoded = urllib.urlencode(post_data)
-        response = urlfetch.fetch(url=data["url"],payload=post_data_encoded,method=urlfetch.POST,headers=http_headers)
+        post_data.update(data["fields"])
+        response = self.send_request(url=data["url"],data=post_data)
         if response.status_code == 200:
-            cookie = response.headers.get('set-cookie')
-            cookiePairList = [cookiePair.split("=") for cookiePair in cookie.split(";")]
-            self.websiteCookies[cookiePairList[0][0]] = {"value":cookiePairList[0][1]}
+            cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
+            if cookie:
+                self.websiteCookies.update(cookie)
             return True
         return False
-    def sendRequest(self, url, method=None, data=None, headers=None):
-        cookieString = ""
-        for cookieName, cookieData in self.websiteCookies.iteritems():
-            cookieString += cookieName+"="+cookieData["value"]+";"
-        http_headers = {'Content-Type': 'application/x-www-form-urlencoded','Cookie':cookieString}
-        if headers is not None:
-            http_headers.update(headers)
-        post_data_encoded = urllib.urlencode(data)
-        if method == None:
-            if data == None:
-                method = urlfetch.GET
-            else:
-                method = urlfetch.POST
-        return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
     def scrapPage(self, response, item):
         pageScraps = {}
         pageScraps["status"] = response.status_code
@@ -67,25 +106,8 @@ class WebsiteScraper(object):
                     selector = CSSSelector(selectorData["string"])
                     dataScraps[selectorName] = []
                     for dataItem in selector(tree):
-                        if "extractor" in selectorData:
-                            extractor = selectorData["extractor"]
-                            if extractor["type"]=="attribute":
-                                if extractor["name"] in dataItem.attrib:
-                                    result = dataItem.attrib[extractor["name"]]
-                                else:
-                                    logging.warning(etree.tostring(dataItem, method='text', encoding="utf-8")+"has no attribute : "+extractor["name"])
-                            elif extractor["type"]=="text":
-                                result = etree.tostring(dataItem, method='text', encoding="utf-8")
-                            elif extractor["type"]=="method":
-                                if extractor["name"]=="text":
-                                    result = dataItem.text
-                                else:
-                                    logging.warning(etree.tostring(dataItem, method='text', encoding="utf-8")+"has no method : "+extractor["name"])
-                            else:
-                                result = etree.tostring(dataItem, method='html', encoding="utf-8")
-                        else:
-                            result = etree.tostring(dataItem, method='html', encoding="utf-8")
-                        if result is not None:
+                        result = self.extract(dataItem, selectorData["extractors"])
+                        if result:
                             dataScraps[selectorName].append(result)
             if "tabular_selectors" in item:
                 for tabularSelectorName, tabularSelectorData in item["tabular_selectors"].iteritems():
@@ -100,78 +122,93 @@ class WebsiteScraper(object):
                             result = ""
                             if len(cellData)==1:
                                 dataItem = cellSelector(rowData)[0]
-                                if "extractor" in cellSelectorData:
-                                    extractor = cellSelectorData["extractor"]
-                                    if extractor["type"]=="attribute":
-                                        if extractor["name"] in dataItem.attrib:
-                                            result = dataItem.attrib[extractor["name"]]
-                                        else:
-                                            logging.warning(etree.tostring(dataItem, method='text', encoding="utf-8")+"has no attribute : "+extractor["name"])
-                                    elif extractor["type"]=="text":
-                                        result = etree.tostring(dataItem, method='text', encoding="utf-8")
-                                    elif extractor["type"]=="method":
-                                        if extractor["name"]=="text":
-                                            result = dataItem.text
-                                        else:
-                                            logging.warning(etree.tostring(dataItem, method='text', encoding="utf-8")+"has no method : "+extractor["name"])
-                                    else:
-                                        result = etree.tostring(dataItem, method='html', encoding="utf-8")
-                                else:
-                                    result = etree.tostring(dataItem, method='html', encoding="utf-8")
+                                result = self.extract(dataItem, cellSelectorData["extractors"])
                             else:
                                 logging.info(cellSelectorData["string"]+"->"+str(cellData))
                             rowScraps.append(result)
         return pageScraps
     def scrapURL(self, url, item):
         post_data = {}
-        for field in item["fields"]:
-            post_data[field["name"]] = field["value"]
-        response = self.sendRequest(url=url,data=post_data)
+        if "fields" in item:
+            post_data.update(item["fields"])
+        response = self.send_request(url=url,data=post_data)
         return self.scrapPage(response, item)
-    def scrapURLForField(self, item):
+    def scrapURLForField(self):
+        scraping_item = self.scrap_list[0]
+        current_url = 0
         itemScraps = {}
-        if "urls" in item:
-            url = item["urls"][0]
-            logging.warning("Error: more than one url in inscrapURLForField()")
-        elif "url" in item:
-            url = [item["url"]]
-        else:
-            logging.warning("Error: no url inscrapURLForField()")
-        fieldName = item["for_field"]["name"]
-        fieldValueList = item["for_field"]["values"]
+        urlList = scraping_item["urls"]
+        fieldName = scraping_item["for_field"]["name"]
+        fieldValueList = scraping_item["for_field"]["values"]
         post_data = {}
-        for field in item["fields"]:
-            post_data[field["name"]] = field["value"]
-        for fieldValue in fieldValueList:
-            post_data[fieldName] = fieldValue
-            response = self.sendRequest(url=url,data=post_data)
-            itemScraps[fieldValue] = self.scrapPage(response, item)
-        return itemScraps
-    def scrapURLList(self, item):
-        itemScraps = {}
-        if "urls" in item:
-            urlList = item["urls"]
-        elif "url" in item:
-            urlList = [item["url"]]
+        try:
+            for i, url in enumerate(urlList):
+                for field in scraping_item["fields"]:
+                    post_data[field["name"]] = field["value"]
+                for fieldValue in fieldValueList:
+                    post_data[fieldName] = fieldValue
+                    response = self.send_request(url=url,data=post_data)
+                    itemScraps[fieldValue] = self.scrapPage(response, scraping_item)
+        except DeadlineExceededError:
+            urls = self.scrap_list[0]["urls"]
+            self.scrap_list[0]["urls"] = urls[current_url:]
+            self.send_response()
+            deferred.defer(self.scrapURLList,scraping_item)
+        self.send_response()
+        self.scrap_list = self.scrap_list[1:]
+    def scrapURLList(self):
+        scraping_item = self.scrap_list[0]
+        current_url = 0
+        item_scraps = {}
+        urlList = scraping_item["urls"]
+        try:
+            logging.info("try")
+            for i, url in enumerate(urlList):
+                logging.info(url)
+                current_url = i
+                if url in item_scraps:
+                    urlScraps = item_scraps[url]
+                else:
+                    urlScraps = {}
+                    item_scraps[url] = urlScraps
+                urlScraps.update(self.scrapURL(url,scraping_item))
+        except DeadlineExceededError:
+            logging.info("DeadlineExceededError")
+            urls = self.scrap_list[0]["urls"]
+            self.scrap_list[0]["urls"] = urls[current_url:]
+            self.send_response()
+            deferred.defer(self.scrapURLList,scraping_item)
+        logging.info("end")
+        self.send_response()
+        self.scrap_list = self.scrap_list[1:]
+    def send_request(self, url, method=None, data=None, headers=None):
+        # helper function that builds the THHP Requests, send them and return the results
+        http_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        #
+        cookie_string = ""
+        for cookieName, cookieData in self.websiteCookies.iteritems():
+            cookie_string += cookieName+"="+cookieData["value"]+";"
+        if cookie_string:
+            headers.update({'Cookie':cookie_string})
+        #
+        if headers:
+            http_headers.update(headers)
+        #
+        post_data_encoded = None
+        if data:
+            post_data_encoded = urllib.urlencode(data)
+        #
+        if method:
+            if "post":
+                method = urlfetch.POST
+            else:
+                method = urlfetch.GET
         else:
-            logging.warning("Error: no url inscrapURLList()")
-        for url in urlList:
-            if url in itemScraps:
-                urlScraps = itemScraps[url]
+            if data:
+                method = urlfetch.POST
             else:
-                urlScraps = {}
-                itemScraps[url] = urlScraps
-            urlScraps.update(self.scrapURL(url,item))
-        return itemScraps
-    def scrap(self, data):
-        # tabular data output
-        scraps = []
-        if "login" in data:
-            self.login(data["login"])
-        scrapList = data["scrap_list"]
-        for item in scrapList:
-            if "for_field" in item:
-                scraps.append(self.scrapURLForField(item))
-            else:
-                scraps.append(self.scrapURLList(item))
-        return scraps
+                method = urlfetch.GET
+        return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
+    def send_response(self):
+        
+        pass

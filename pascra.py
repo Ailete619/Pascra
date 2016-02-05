@@ -27,6 +27,7 @@ class MiscHandler(BaseHandler):
 class RequestTestingHandler(BaseHandler):
     def get(self,**kwargs):
         test_kukkiapple_order_scraping =   {
+                                             "batch_size":1,
                                              "login":{"url":"https://apple.kukkia.jp/bin/login.php","login":{"name":"login_id","value":"kukkia"},"password":{"name":"login_pw","value":"kukkiapple"},"fields":[{"name":"bst","value":"1024"},{"name":"bsy","value":"1280"}]},
                                              "scrap_list":[
                                                              {
@@ -68,22 +69,23 @@ class RequestTestingHandler(BaseHandler):
                                                                                                                     ]
                                                                                                   }
                                                                                    },
-                                                              "url":"https://apple.kukkia.jp/bin/ovs_pi.php",
+                                                              "urls":["https://apple.kukkia.jp/bin/ovs_pi.php"],
                                                               }
                                                            ]
                                             }
         test_kukkiapple_order_list_scraping =  {
+                                                 "batch_size":1,
                                                  "login":{"url":"https://apple.kukkia.jp/bin/login.php","login":{"name":"login_id","value":"kukkia"},"password":{"name":"login_pw","value":"kukkiapple"},"fields":[{"name":"bst","value":"1024"},{"name":"bsy","value":"1280"}]},
                                                  "scrap_list":[
                                                                  {
                                                                   "encoding":"utf-8",
-                                                                  "fields":[{"name":"cmd","value":"list"},
-                                                                            {"name":"stxt","value":""},
-                                                                            {"name":"s_cus_id","value":""},
-                                                                            {"name":"date_st","value":""},
-                                                                            {"name":"date_en","value":""},
-                                                                            {"name":"bst","value":"1024"},
-                                                                            {"name":"bsy","value":"1280"}
+                                                                  "fields":[{"cmd":"list"},
+                                                                            {"stxt":""},
+                                                                            {"s_cus_id":""},
+                                                                            {"date_st":""},
+                                                                            {"date_en":""},
+                                                                            {"bst":"1024"},
+                                                                            {"bsy":"1280"}
                                                                             ],
                                                                   "selectors":{"edit_onclick":{"string":"div#ajax_area tr td:nth-child(8) a[onclick]","extractor":{"type":"attribute","name":"onclick"}},
                                                                                "order_id":{"string":"div#ajax_area tr td:nth-child(1)","extractor":{"type":"text"}}
@@ -120,19 +122,15 @@ class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/pascra.html', **kwargs)
     def post(self,**kwargs):
-        scraper = WebsiteScraper()
-        scraps = scraper.scrap(self.request.get('json'))
-        logging.info('response')
-        logging.info(scraps)
-        self.response.write(json.dumps(scraps))
+        scraper = WebsiteScraper(self.request)
         
 
 
 config = {}
 
 app = webapp2.WSGIApplication([
-                               webapp2.Route(r'/scrap/page/request', RequestTestingHandler),
-                               webapp2.Route(r'/scrap/page', ScrapingHandler),
+                               webapp2.Route(r'/scrap/test', RequestTestingHandler),
+                               webapp2.Route(r'/scrap', ScrapingHandler),
                                ('.*', MiscHandler)
                               ],
                               config=config,
