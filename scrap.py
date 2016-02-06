@@ -166,11 +166,12 @@ class WebsiteScraper(object):
             for i, url in enumerate(urlList):
                 logging.info(url)
                 current_url = i
-                if url in item_scraps["urls"]:
-                    urlScraps = item_scraps["urls"][url]
+                url_string = url["string"]
+                if url_string in item_scraps["urls"]:
+                    urlScraps = item_scraps["urls"][url_string]
                 else:
-                    urlScraps = {}
-                    item_scraps["urls"][url] = urlScraps
+                    urlScraps = {"date":url["date"]}
+                    item_scraps["urls"][url_string] = urlScraps
                 urlScraps.update(self.scrapURL(url,scraping_item))
         except DeadlineExceededError:
             logging.info("DeadlineExceededError")
