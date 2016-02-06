@@ -54,14 +54,15 @@ class WebsiteScraper(object):
         else:
             return None
     def __init__(self, GAE_request):
-        self.response_cookies = {}
         self.response_data = []
-        self.response_request = {}
+        self.response_headers = {"Referer":GAE_request.url}
         self.scrap_list = []
         self.target_cookies = {}
         cookie = self.parse_set_cookie(GAE_request.headers["Set-Cookie"])
         if cookie:
-            self.response_cookies.update(cookie)
+            for c,v in cookie.iteritems():
+                self.response_headers[c] = v["value"]
+        self.response_url = GAE_request.headers["Referer"]
         data_request = json.loads(GAE_request.get('json'))
         if "login" in data_request:
             self.login(data_request["login"])
@@ -159,26 +160,26 @@ class WebsiteScraper(object):
     def scrapURLList(self):
         scraping_item = self.scrap_list[0]
         current_url = 0
-        item_scraps = {}
+        item_scraps = {"encoding":scraping_item["encoding"],"handler":scraping_item["handler"],"urls":[]}
         urlList = scraping_item["urls"]
         try:
-            logging.info("try")
             for i, url in enumerate(urlList):
                 logging.info(url)
                 current_url = i
-                if url in item_scraps:
-                    urlScraps = item_scraps[url]
+                if url in item_scraps["urls"]:
+                    urlScraps = item_scraps["urls"][url]
                 else:
                     urlScraps = {}
-                    item_scraps[url] = urlScraps
+                    item_scraps["urls"][url] = urlScraps
                 urlScraps.update(self.scrapURL(url,scraping_item))
         except DeadlineExceededError:
             logging.info("DeadlineExceededError")
             urls = self.scrap_list[0]["urls"]
             self.scrap_list[0]["urls"] = urls[current_url:]
+            self.response_data.append(item_scraps)
             self.send_response()
             deferred.defer(self.scrapURLList,scraping_item)
-        logging.info("end")
+        self.response_data.append(item_scraps)
         self.send_response()
         self.scrap_list = self.scrap_list[1:]
     def send_request(self, url, method=None, data=None, headers=None):
@@ -210,5 +211,7 @@ class WebsiteScraper(object):
                 method = urlfetch.GET
         return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
     def send_response(self):
-        
-        pass
+        logging.info(self.response_url)
+        logging.info(self.response_headers)
+        logging.info(self.response_data)
+        self.send_request(url=self.response_url,data={"json":json.dumps(self.response_data)},headers=self.response_headers)
