@@ -160,7 +160,7 @@ class WebsiteScraper(object):
     def scrapURLList(self):
         scraping_item = self.scrap_list[0]
         current_url = 0
-        item_scraps = {"encoding":scraping_item["encoding"],"handler":scraping_item["handler"],"urls":[]}
+        item_scraps = {"encoding":scraping_item["encoding"],"handler":scraping_item["handler"],"urls":{}}
         urlList = scraping_item["urls"]
         try:
             for i, url in enumerate(urlList):
@@ -172,7 +172,7 @@ class WebsiteScraper(object):
                 else:
                     urlScraps = {"date":url["date"]}
                     item_scraps["urls"][url_string] = urlScraps
-                urlScraps.update(self.scrapURL(url,scraping_item))
+                urlScraps.update(self.scrapURL(url["string"],scraping_item))
         except DeadlineExceededError:
             logging.info("DeadlineExceededError")
             urls = self.scrap_list[0]["urls"]
