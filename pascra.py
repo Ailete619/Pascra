@@ -122,7 +122,7 @@ class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/pascra.html', **kwargs)
     def post(self,**kwargs):
-        scraper = WebsiteScraper(self.request)
+        scraper = WebsiteScraper(self.request,self.response)
         
 
 
