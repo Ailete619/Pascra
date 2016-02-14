@@ -54,7 +54,9 @@ class WebsiteScraper(object):
         else:
             return None
     def __init__(self, GAE_request, GAE_response):
+        logging.info("headers="+str(GAE_request.headers))
         self.response_data = []
+        self.response = {"data":self.response_data}
         self.response_headers = {"Referer":GAE_request.url}
         self.scrap_list = []
         self.target_cookies = {}
@@ -62,15 +64,20 @@ class WebsiteScraper(object):
         if cookie:
             for c,v in cookie.iteritems():
                 self.response_headers[c] = v["value"]
-        self.response = GAE_response
+        self.GAE_response = GAE_response
         if "Referer" in GAE_request.headers:
             self.response_url = GAE_request.headers["Referer"]
         else:
             self.response_url = None
         data_request = json.loads(GAE_request.get('json'))
-        if "login" in data_request:
-            self.login(data_request["login"])
-        self.scrap_list = data_request["scrap_list"]
+
+        for key, value in data_request.iteritems():
+            if key=="login":
+                self.login(value)
+            elif key=="scrap_list":
+                self.scrap_list = value
+            else:
+                self.response[key] = value
         for item in self.scrap_list:
             if "url" in item:
                 item["urls"] = [item["url"]]
@@ -84,8 +91,9 @@ class WebsiteScraper(object):
                 r = self.scrapURLList()
                 if r:
                     r = json.dumps(r)
-                    logging.info(r)
-                    self.response.out.write(r)
+                    logging.info("r="+str(r))
+                    self.GAE_response.out.write(r)
+        self.GAE_response.set_status(200)
 
     def login(self, data):
         post_data = {data["login"]["name"]:data["login"]["value"],data["password"]["name"]:data["password"]["value"]}
@@ -208,8 +216,8 @@ class WebsiteScraper(object):
                 try:
                     parser = etree.HTMLParser()
                         
-                    tree = etree.fromstring(response.content.decode(encoding), parser)
-                    #textu = response.content.decode(encoding)
+                    tree = etree.fromstring(GAE_response.content.decode(encoding), parser)
+                    #textu = GAE_response.content.decode(encoding)
                 except Exception as e:
                     exception_list.append(encoding)
                     good = False
@@ -224,8 +232,8 @@ class WebsiteScraper(object):
                 else:
                     encoding = "utf-8"
             parser = etree.HTMLParser()#encoding=encoding)
-            #tree = etree.parse(make_unicode(response.content), parser)
-            #tree = etree.parse(StringIO(response.content.decode('utf-8-sig')), parser)
+            #tree = etree.parse(make_unicode(GAE_response.content), parser)
+            #tree = etree.parse(StringIO(GAE_response.content.decode('utf-8-sig')), parser)
             tree = etree.fromstring(response.content, parser)
             # extract the data for all the css selectors on the page
             data_scraps = {}
@@ -268,7 +276,7 @@ class WebsiteScraper(object):
             post_data.update(item["fields"])
         #logging.info(url)
         response = self.send_request(url=url,data=post_data)
-        #logging.info(response.content)
+        #logging.info(GAE_response.content)
         return self.scrapPage(response, item, encoding)
     def scrapURLForField(self):
         scraping_item = self.scrap_list[0]
@@ -307,8 +315,9 @@ class WebsiteScraper(object):
                     urlScraps = item_scraps["urls"][url_string]
                 else:
                     urlScraps = {}
-                    if "date" in url:
-                        urlScraps["date"] = url["date"]
+                    for key, value in url.iteritems():
+                        if key!="string":
+                            urlScraps[key] = value
                     item_scraps["urls"][url_string] = urlScraps
                 if "encoding" in url:
                     encoding = url["encoding"]
@@ -358,4 +367,4 @@ class WebsiteScraper(object):
                 method = urlfetch.GET
         return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
     def send_response(self):
-        self.send_request(url=self.response_url,data={"json":json.dumps(self.response_data)},headers=self.response_headers)
+        self.send_request(url=self.response_url,data={"json":json.dumps(self.response)},headers=self.response_headers)

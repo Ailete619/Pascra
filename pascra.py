@@ -14,9 +14,9 @@ class BaseHandler(webapp2.RequestHandler):
         """ Returns a Jinja2 renderer cached in the app registry. """
         return jinja2.get_jinja2(app=self.app)
     def render_response(self, _template, **context):
-        """ Renders a template and writes the result to the response. """
+        """ Renders a template and writes the result to the GAE_response. """
         rv = self.jinja2.render_template(_template, **context)
-        self.response.write(rv)
+        self.GAE_response.write(rv)
 
 class MiscHandler(BaseHandler):
     def get(self,**kwargs):
@@ -109,14 +109,14 @@ class RequestTestingHandler(BaseHandler):
         encoding = self.request.get("encoding")
         selectors = self.request.get("selectors")
         selectors = selectors.splitlines()
-        #response = requests.post("/scrap/page", data={'url': url, 'encoding': encoding, 'selectors': selectors})
+        #GAE_response = requests.post("/scrap/page", data={'url': url, 'encoding': encoding, 'selectors': selectors})
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         post_data_encoded = urllib.urlencode({'json':json.dumps({'url': url, 'encoding': encoding, 'selectors': selectors})})
         request_object = urllib2.Request("https://pascra619.appspot.com/scrap/page", post_data_encoded,http_headers)
         response = urllib2.urlopen(request_object)
-        logging.info('response')
-        #logging.info(response.read())
-        self.response.write(response.read())
+        logging.info('GAE_response')
+        #logging.info(GAE_response.read())
+        self.GAE_response.write(response.read())
 
 class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
