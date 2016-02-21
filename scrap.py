@@ -5,11 +5,10 @@
 @author: ailete619
 '''
 
-import datetime
+from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
 from google.appengine.ext import deferred
 from google.appengine.runtime import DeadlineExceededError
-from io import StringIO
 import json
 import logging
 from lxml import etree
@@ -18,18 +17,105 @@ from lxml.html import parse, fromstring
 import re
 import urllib
 import urllib2
-import webapp2
-from datetime import date
 
-class WebsiteScraper(object):
-    websiteCookies = {}
+import logging
+import webapp2
+from webapp2_extras import jinja2
+
+class BaseHandler(webapp2.RequestHandler):
+    def get(self,**kwargs):
+        pass
+    @webapp2.cached_property
+    def jinja2(self):
+        """ Returns a Jinja2 renderer cached in the app registry. """
+        return jinja2.get_jinja2(app=self.app)
     @classmethod
     def parse_set_cookie(cls, set_cookie):
-        logging.info(cls.__name__+".parse_set_cookie("+str(set_cookie)+")")
+        #logging.info(cls.__name__+".parse_set_cookie("+str(set_cookie)+")")
         if set_cookie:
             cookiePairList = [cookiePair.split("=") for cookiePair in set_cookie.split(";")]
-            return {cookiePairList[0][0]:{"value":cookiePairList[0][1]}}
-        return None
+            return {cookiePair[0]:cookiePair[1] for cookiePair in cookiePairList}
+        return {}
+    def post(self,**kwargs):
+        pass
+    def render_response(self, _template, **context):
+        """ Renders a template and writes the result to the response. """
+        rv = self.jinja2.render_template(_template, **context)
+        self.response.write(rv)
+    def send_request(self, url, method=None, data=None, headers=None):
+        # helper function that builds the THHP Requests, send them and return the results
+        http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
+        #
+        #cookie_string = ""
+        #for cookieName, cookieData in self.websiteCookies.iteritems():
+        #    cookie_string += cookieName+"="+cookieData["value"]+";"
+        #if cookie_string:
+        #    headers.update({'Cookie':cookie_string})
+        #
+        if headers:
+            http_headers.update(headers)
+        #
+        post_data_encoded = None
+        if data:
+            post_data_encoded = urllib.urlencode(data)
+        #
+        if method:
+            if "post":
+                method = urlfetch.POST
+            else:
+                method = urlfetch.GET
+        else:
+            if data:
+                method = urlfetch.POST
+            else:
+                method = urlfetch.GET
+        return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
+
+class ListHandler(BaseHandler):
+    def login(self, login_request):
+        post_data = {login_request["login"]["name"]:login_request["login"]["value"],login_request["password"]["name"]:login_request["password"]["value"]}
+        post_data.update(login_request["fields"])
+        response = self.send_request(url=login_request["url"],login_request=post_data)
+        if response.status_code == 200:
+            cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
+            if cookie:
+                self.websiteCookies.update(cookie)
+            return True
+        return False
+    def post(self,**kwargs):
+        request_info = {}
+        request_info["referer_url"] = self.request.get("referer_url")
+        request_info["response_cookies"] = self.request.get("response_cookies")
+        request_info["response_url"] = self.request.get("response_url")
+        scraping_request = json.loads(self.request.get("json"))
+        scrap_list = []
+        for key, value in scraping_request.iteritems():
+            if key=="login":
+                request_info["login_cookies"] = self.login(value)
+            elif key=="scrap_list":
+                scrap_list = value
+            else:
+                request_info[key] = value
+        for item_request in scrap_list:
+            if "url" in item_request:
+                item_request["urls"] = [item_request["url"]]
+                del item_request["url"]
+            for key, value in request_info.iteritems():
+                if key not in item_request:
+                    item_request[key] = value
+            taskqueue.add(url='/internal/item',queue_name='scraping',params={"json":json.dumps(item_request)})
+
+        """
+            if "for_field" in item_request:
+                self.scrapURLForField()
+            else:
+                r = self.scrapURLList()
+                if r:
+                    r = json.dumps(r)
+                    logging.info("r="+str(r))
+                    self.GAE_response.out.write(r)
+        self.GAE_response.set_status(200)"""
+class ItemHandler(BaseHandler):
     def extract(self, element, extractor_list):
         if extractor_list:
             scraps = {}
@@ -53,6 +139,144 @@ class WebsiteScraper(object):
             return scraps
         else:
             return None
+    def post(self,**kwargs):
+        request = json.loads(self.request.get("json"))
+        logging.info(request)
+        if "for_field" in request:
+            self.scrapURLForField(request)
+        else:
+            self.scrapURLList(request)
+    def scrapURL(self, url, request, encoding=None):
+        post_data = {}
+        if "fields" in request:
+            post_data.update(request["fields"])
+        response = self.send_request(url=url,data=post_data)
+        url_scraps = {}
+        url_scraps["status"] = response.status_code
+        if response.status_code == 200:
+            multipart_loaded = False
+            data_scraps = {}
+            url_scraps["data"] = data_scraps
+            content = [response.content]
+            # parse the page
+            #if not encoding:
+            #    if "encoding" in request:
+            #        encoding = request["encoding"]
+            #    else:
+            #        encoding = "utf-8"
+            parser = etree.HTMLParser()#encoding=encoding)
+            while len(content)>=0:
+                tree = etree.fromstring(content[0], parser)
+                # extract the data for all the css selectors on the page
+                if "multipart" in request and multipart_loaded==False:
+                    selector = CSSSelector(request["multipart"])
+                    for page_link in selector(tree):
+                        url = self.extract(page_link, {"type":"attribute","name":"href"})
+                        if "fields" in request:
+                            post_data.update(request["fields"])
+                        part_loaded = False
+                        while part_loaded==False:
+                            response = self.send_request(url=url,data=post_data)
+                            if response.status_code == 200:
+                                content.append(response.content)
+                                part_loaded = True
+                    multipart_loaded = True
+                if "selectors" in request:
+                    for selectorName, selectorData in request["selectors"].iteritems():
+                        selector = CSSSelector(selectorData["string"])
+                        selector_scraps = []
+                        data_scraps[selectorName] = selector_scraps
+                        for dataItem in selector(tree):
+                            result = self.extract(dataItem, selectorData["extractors"])
+                            #logging.info(selectorData["string"]+" = "+str(result))
+                            if len(result)==1:
+                                result = result.values()[0]
+                            if result:
+                                selector_scraps.append(result)
+                        if len(selector_scraps)==1:
+                            data_scraps[selectorName]=selector_scraps[0]
+                if "tabular_selectors" in request:
+                    for tabularSelectorName, tabularSelectorData in request["tabular_selectors"].iteritems():
+                        rowSelector = CSSSelector(tabularSelectorData["line_selector"])
+                        data_scraps[tabularSelectorName] = []
+                        for rowData in rowSelector(tree):
+                            rowScraps = []
+                            data_scraps[tabularSelectorName].append(rowScraps)
+                            for cellSelectorData in tabularSelectorData["cell_selectors"]:
+                                cellSelector = CSSSelector(cellSelectorData["string"])
+                                cellData = cellSelector(rowData)
+                                result = ""
+                                if len(cellData)==1:
+                                    dataItem = cellSelector(rowData)[0]
+                                    result = self.extract(dataItem, cellSelectorData["extractors"])
+                                else:
+                                    logging.info(cellSelectorData["string"]+"->"+str(cellData))
+                                rowScraps.append(result)
+                content = content[1:]
+        return url_scraps
+    def scrapURLList(self,request):
+        current_url = 0
+        item_scraps = {"urls":{}}
+        response_headers = {}
+        urlList = []
+        for key, value in request.iteritems():
+            if key=="referer_url":
+                response_headers["Referer"] = request["referer_url"]
+            elif key=="response_cookies":
+                response_headers["Cookie"] = request["response_cookies"]
+            elif key=="selectors":
+                pass
+            elif key=="tabular_selectors":
+                pass
+            elif key=="urls":
+                urlList = request["urls"]
+            else:
+                item_scraps[key] = value
+        
+        try:
+            i = 0
+            for url in urlList:
+                logging.info(url)
+                current_url += 1;
+                url_string = url["string"]
+                if url_string in item_scraps["urls"]:
+                    urlScraps = item_scraps["urls"][url_string]
+                else:
+                    urlScraps = {}
+                    for key, value in url.iteritems():
+                        if key!="string":
+                            urlScraps[key] = value
+                    item_scraps["urls"][url_string] = urlScraps
+                if "encoding" in url:
+                    encoding = url["encoding"]
+                else:
+                    encoding = None
+                urlScraps.update(self.scrapURL(url["string"],request,encoding=encoding))
+                i += 1
+                if i == 10:
+                    i = 0
+                    self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+            response_headers["edr_eof"] = "True"
+            logging.info(item_scraps)
+            self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+        except DeadlineExceededError:
+            logging.info("DeadlineExceededError")
+            urls = request["urls"]
+            request["urls"] = urls[current_url:]
+            self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+            deferred.defer(self.scrapURLList,request)
+
+class WebsiteScraper(object):
+    websiteCookies = {}
+
+    @classmethod
+    def parse_set_cookie(cls, set_cookie):
+        #logging.info(cls.__name__+".parse_set_cookie("+str(set_cookie)+")")
+        if set_cookie:
+            cookiePairList = [cookiePair.split("=") for cookiePair in set_cookie.split(";")]
+            return {cookiePairList[0][0]:{"value":cookiePairList[0][1]}}
+        return None
+
     def __init__(self, GAE_request, GAE_response):
         logging.info("headers="+str(GAE_request.headers))
         self.response_data = []
@@ -95,16 +319,6 @@ class WebsiteScraper(object):
                     self.GAE_response.out.write(r)
         self.GAE_response.set_status(200)
 
-    def login(self, data):
-        post_data = {data["login"]["name"]:data["login"]["value"],data["password"]["name"]:data["password"]["value"]}
-        post_data.update(data["fields"])
-        response = self.send_request(url=data["url"],data=post_data)
-        if response.status_code == 200:
-            cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
-            if cookie:
-                self.websiteCookies.update(cookie)
-            return True
-        return False
     def scrapPage(self, response, item, encoding=None):
         def make_unicode(input):
             if type(input) != unicode:

@@ -6,6 +6,7 @@ from scrap import WebsiteScraper
 import urllib
 import urllib2
 import webapp2
+import scrap
 from webapp2_extras import jinja2
 
 class BaseHandler(webapp2.RequestHandler):
@@ -122,7 +123,15 @@ class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/pascra.html', **kwargs)
     def post(self,**kwargs):
-        scraper = WebsiteScraper(self.request,self.response)
+        logging.info(self.request.headers)
+        logging.info(self.request.get("json"))
+        taskqueue.add(url='/internal/list',queue_name='scraping',params={
+                                                                         'referer_url':self.request.url,
+                                                                         'response_cookies':self.request.headers["Set-Cookie"],
+                                                                         'response_url':self.request.headers.get("Referer"),
+                                                                         'json':self.request.get("json")
+                                                                         })
+        self.response.set_status(200)
         
 
 
@@ -131,6 +140,8 @@ config = {}
 app = webapp2.WSGIApplication([
                                webapp2.Route(r'/scrap/test', RequestTestingHandler),
                                webapp2.Route(r'/scrap', ScrapingHandler),
+                               webapp2.Route(r'/internal/item', scrap.ItemHandler),
+                               webapp2.Route(r'/internal/list', scrap.ListHandler),
                                ('.*', MiscHandler)
                               ],
                               config=config,
