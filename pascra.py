@@ -123,8 +123,8 @@ class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/pascra.html', **kwargs)
     def post(self,**kwargs):
-        logging.info(self.request.headers)
-        logging.info(self.request.get("json"))
+        #logging.info(self.request.headers)
+        #logging.info(self.request.get("json"))
         taskqueue.add(url='/internal/list',queue_name='scraping',params={
                                                                          'referer_url':self.request.url,
                                                                          'response_cookies':self.request.headers["Set-Cookie"],
