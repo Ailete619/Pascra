@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Pascra</title>
+		<link rel="stylesheet" href="/stylesheets/pascra.css">
+		{% block head_css %}
+		{% endblock %}
+		<style type="text/css">
+			{% block inline_css %}
+			{% endblock %}
+		</style>
+		<link rel="Ailete 619 icon" href="/favicon.ico" type="image/x-icon"/>
+		{% if js: %}
+			<script type="text/javascript">
+				{% for k,v in js.iteritems() %}
+					var {{ k }} = {{ v|safe }};
+				{% endfor %}
+			</script>
+		{% endif %}
+		<script type="text/javascript" src="javascript/ailete619.js"></script>
+		{% block head_js %}
+		{% endblock %}
+		<script type="text/javascript">
+			{% block inline_head_js %}
+			{% endblock %}
+		</script>
+	</head>
+ 	<body>
+ 		<div id="wrapper">
+			<header>
+				<a href="/"><img src="/images/96-aqua-logo-with-border.png"><h1>PASCRA</h1></a>
+				<nav>
+					<ul>
+						<li>{{locale.menu.scraper}}<ul>{% if user %}<li><a href="/scrap/test">{{locale.menu.scrap_request}}</a></li>{% endif %}<li><a href="/scrap/source">{{locale.menu.scrap_source}}</a></li><li><a href="/scrap/help">{{locale.menu.scrap_help}}</a></li></ul></li>
+						{% if user %}<li>{{locale.menu.cache}}<ul><li><a href="/cache/test">{{locale.menu.cache_test}}</a></li><li><a href="/cache/delete">{{locale.menu.cache_delete}}</a></li></ul></li>{% endif %}
+						{% if user and user.access=="admin" %}<li>{{locale.menu.javascript}}<ul><li><a href="/javascript/test">{{locale.menu.javascript_test}}</a></li></ul></li>{% endif %}
+						{% if user and user.access=="admin" %}<li>{{locale.menu.users}}<ul><li><a href="/users/list">{{locale.menu.users_list}}</a></li><li><a href="/users/edit">{{locale.menu.users_new}}</a></li></ul></li>{% endif %}
+					</ul>
+					{% if user %}
+						<label for="username">{{locale.info.user}}:</label>
+						<span id="username">{{user.access}}> {{user.name}} ({{user.email}})</span>
+						<a class="log" href="/users/signout">{{locale.nav.signout}}</a>
+					{% else %}
+						<a class="log" href="/users/signin">{{locale.nav.signin}}</a>
+					{% endif %}
+				</nav>
+			</header>
+			<article>
+				{% block content %}
+				{% endblock %}
+			</article>
+		</div>
+		<script type="text/javascript">
+			{% block inline_body_js %}
+			{% endblock %}
+		</script>
+	</body>
+</html>

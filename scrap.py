@@ -41,6 +41,18 @@ class BaseHandler(webapp2.RequestHandler):
         """ Renders a template and writes the result to the response. """
         rv = self.jinja2.render_template(_template, **context)
         self.response.write(rv)
+    def fetch_page(self, url, method=None, data=None, headers=None, cached="no-cache"):
+        url_encoded_data = {}
+        if data:
+            url_encoded_data["data"] = data
+        if headers:
+            url_encoded_data["headers"] = headers
+        if method:
+            url_encoded_data["method"] = method
+        if url:
+            url_encoded_data["url"] = url
+        url_encoded_data = urllib.urlencode(url_encoded_data)
+        return urlfetch.fetch(url="/fetch/"+cached,payload=url_encoded_data,method=urlfetch.GET)
     def send_request(self, url, method=None, data=None, headers=None):
         # helper function that builds the THHP Requests, send them and return the results
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
@@ -77,8 +89,12 @@ class BaseHandler(webapp2.RequestHandler):
 class ListHandler(BaseHandler):
     def login(self, login_request):
         post_data = {login_request["login"]["name"]:login_request["login"]["value"],login_request["password"]["name"]:login_request["password"]["value"]}
+        logging.info("login post_data="+str(post_data))
+        logging.info("login fields="+str(login_request["fields"]))
         post_data.update(login_request["fields"])
-        response = self.send_request(url=login_request["url"],login_request=post_data)
+        response = self.send_request(url=login_request["url"],data=login_request)
+        logging.info("login headers="+str(response.headers))
+        logging.info(response.content)
         if response.status_code == 200:
             cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
             if cookie:
@@ -91,9 +107,14 @@ class ListHandler(BaseHandler):
         request_info["response_cookies"] = self.request.get("response_cookies")
         request_info["response_url"] = self.request.get("response_url")
         scraping_request = json.loads(self.request.get("json"))
+        logging.info(scraping_request)
         scrap_list = []
+        if "login" in scraping_request:
+            logging.info("login")
+            logging.info(scraping_request["login"])
         for key, value in scraping_request.iteritems():
             if key=="login":
+                logging.info("login")
                 request_info["login_cookies"] = self.login(value)
             elif key=="scrap_list":
                 scrap_list = value
@@ -116,10 +137,11 @@ class ListHandler(BaseHandler):
                 if r:
                     r = json.dumps(r)
                     logging.info("r="+str(r))
-                    self.GAE_response.out.write(r)
-        self.GAE_response.set_status(200)"""
+                    self.response.out.write(r)
+        self.response.set_status(200)"""
 class ItemHandler(BaseHandler):
-    def extract(self, element, extractor_list):
+    @classmethod
+    def extract(cls, element, extractor_list):
         if extractor_list:
             scraps = {}
             for extractor in extractor_list:
@@ -150,11 +172,61 @@ class ItemHandler(BaseHandler):
             self.scrapURLForField(request)
         else:
             self.scrapURLList(request)
+    @classmethod
+    def selectorScrap(cls,tree,selectors,data_scraps):
+
+        for selectorName, selectorData in selectors.iteritems():
+            selector = CSSSelector(selectorData["string"])
+            if not selectorName in data_scraps:
+                selector_scraps = []
+                data_scraps[selectorName] = selector_scraps
+            else:
+                selector_scraps = data_scraps[selectorName]
+            for dataItem in selector(tree):
+                result = cls.extract(dataItem, selectorData["extractors"])
+                #logging.info(selectorData["string"]+" = "+str(result))
+                if len(result)==1:
+                    result = result.values()[0]
+                if result:
+                    if type(selector_scraps)==str:
+                        selector_scraps = [selector_scraps]
+                        data_scraps[selectorName] = selector_scraps
+                    selector_scraps.append(result)
+            if len(selector_scraps)==1:
+                data_scraps[selectorName]=selector_scraps[0]
+    @classmethod
+    def tabularSelectorScrap(cls,tree,selectors,data_scraps):
+        for tabularSelectorName, tabularSelectorData in selectors.iteritems():
+            rowSelector = CSSSelector(tabularSelectorData["line_selector"])
+            data_scraps[tabularSelectorName] = []
+            for rowData in rowSelector(tree):
+                rowScraps = []
+                data_scraps[tabularSelectorName].append(rowScraps)
+                for cellSelectorData in tabularSelectorData["cell_selectors"]:
+                    cellSelector = CSSSelector(cellSelectorData["string"])
+                    cellData = cellSelector(rowData)
+                    result = ""
+                    if len(cellData)==1:
+                        dataItem = cellSelector(rowData)[0]
+                        result = cls.extract(dataItem, cellSelectorData["extractors"])
+                    else:
+                        logging.info(cellSelectorData["string"]+"->"+str(cellData))
+                    rowScraps.append(result)
+    @classmethod
+    def scrapSource(cls, source, request, encoding=None):
+        data_scraps = {}
+        parser = etree.HTMLParser()#encoding=encoding)
+        tree = etree.fromstring(source, parser)
+        if "selectors" in request:
+            cls.selectorScrap(tree,request["selectors"],data_scraps)
+        if "tabular_selectors" in request:
+            cls.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
+        return data_scraps
     def scrapURL(self, url, request, encoding=None):
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
-        response = self.send_request(url=url,data=post_data)
+        response = self.fetch_pageS(url=url,data=post_data,cached="cache")
         url_scraps = {}
         url_scraps["status"] = response.status_code
         if response.status_code == 200:
@@ -172,13 +244,13 @@ class ItemHandler(BaseHandler):
             while (len(url_content)>0):
                 tree = etree.fromstring(url_content[0], parser)
                 # extract the data for all the css selectors on the page
-                logging.info("len url_content="+str(len(url_content)))
-                logging.info("multipart_loaded="+str(multipart_loaded))
+                #logging.info("len url_content="+str(len(url_content)))
+                #logging.info("multipart_loaded="+str(multipart_loaded))
                 if "multipart" in request and multipart_loaded==False:
                     logging.info("multipart="+request["multipart"])
                     selector = CSSSelector(request["multipart"])
                     for page_link in selector(tree):
-                        logging.info("multipart")
+                        #logging.info("multipart")
                         next_url = self.extract(page_link, [{"type":"attribute","name":"href"}])
                         if next_url:
                             next_url = next_url["attribute"]
@@ -187,54 +259,20 @@ class ItemHandler(BaseHandler):
                         post_data = {}
                         if "fields" in request:
                             post_data.update(request["fields"])
-                            logging.info("post_data="+str(post_data))
+                            #logging.info("post_data="+str(post_data))
                         part_loaded = False
                         while part_loaded==False:
                             response = self.send_request(url=next_url,data=post_data)
                             if response.status_code == 200:
                                 url_content.append(response.content)
                                 part_loaded = True
-                    logging.info("len url_content="+str(len(url_content)))
-                    logging.info("url_content="+str(url_content))
+                    #logging.info("len url_content="+str(len(url_content)))
+                    #logging.info("url_content="+str(url_content))
                     multipart_loaded = True
                 if "selectors" in request:
-                    for selectorName, selectorData in request["selectors"].iteritems():
-                        selector = CSSSelector(selectorData["string"])
-                        if not selectorName in data_scraps:
-                            selector_scraps = []
-                            data_scraps[selectorName] = selector_scraps
-                        else:
-                            selector_scraps = data_scraps[selectorName]
-                        for dataItem in selector(tree):
-                            result = self.extract(dataItem, selectorData["extractors"])
-                            #logging.info(selectorData["string"]+" = "+str(result))
-                            if len(result)==1:
-                                result = result.values()[0]
-                            if result:
-                                if type(selector_scraps)==str:
-                                    logging.info(selectorName)
-                                    logging.info(data_scraps[selectorName])
-                                    logging.info(selector_scraps)
-                                selector_scraps.append(result)
-                        if len(selector_scraps)==1:
-                            data_scraps[selectorName]=selector_scraps[0]
+                    self.selectorScrap(tree,request["selectors"],data_scraps)
                 if "tabular_selectors" in request:
-                    for tabularSelectorName, tabularSelectorData in request["tabular_selectors"].iteritems():
-                        rowSelector = CSSSelector(tabularSelectorData["line_selector"])
-                        data_scraps[tabularSelectorName] = []
-                        for rowData in rowSelector(tree):
-                            rowScraps = []
-                            data_scraps[tabularSelectorName].append(rowScraps)
-                            for cellSelectorData in tabularSelectorData["cell_selectors"]:
-                                cellSelector = CSSSelector(cellSelectorData["string"])
-                                cellData = cellSelector(rowData)
-                                result = ""
-                                if len(cellData)==1:
-                                    dataItem = cellSelector(rowData)[0]
-                                    result = self.extract(dataItem, cellSelectorData["extractors"])
-                                else:
-                                    logging.info(cellSelectorData["string"]+"->"+str(cellData))
-                                rowScraps.append(result)
+                    self.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
                 del url_content[0]
                 #url_content = url_content[1:]
         return url_scraps

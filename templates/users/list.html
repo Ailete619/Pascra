@@ -1,0 +1,78 @@
+{% extends "/base-layout.html" %}
+{% block inline_css %}
+table {
+border:none;
+border-collapse: collapse;
+width:100%;
+}
+th{
+background-color: lightgray;
+}
+table#new tbody>tr:nth-child(odd) {
+background-color: #ffdcbf;
+}
+table#new tbody>tr:nth-child(even) {
+background-color: #ffbc84;
+}
+table#user tbody>tr:nth-child(odd) {
+background-color: #daffda;
+}
+table#user tbody>tr:nth-child(even) {
+background-color: #c3ffc3;
+}
+table td + td { border-left:1px solid white; }
+{% endblock %}
+{% block content %}
+	<h2>{{locale.user_list.user}}</h2>
+	<div>
+		<div><input type="checkbox" onchange="toggleAllCheckBoxes('selected_user_profile_list')"></div>
+		<div><button onclick="sendCommandAllCheckedBoxes('users','delete','selected_user_profile_list')">{{locale.nav.delete}}</button></div>
+	</div>
+	<table id="user">
+		<thead>
+			<tr>
+				<th></th>
+				<th>{{locale.user_list.id}}</th>
+				<th>{{locale.user_list.name}}</th>
+				<th>{{locale.user_list.email}}</th>
+				<th>{{locale.user_list.access}}</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for user_profile in user_profile_list %}
+				<tr>
+					<td><input type="checkbox" name="selected_user_profile_list" value="{{ user_profile.key.urlsafe() }}"></td>
+					<td>{{ user_profile.userid }}</td>
+					<td><a target="{{ user_profile.key.urlsafe() }}" href="/users/edit/_{{ user_profile.key.urlsafe() }}">{{ user_profile.name }}</a></td>
+					<td>{{ user_profile.email }}</td>
+					<td>{{ user_profile.access }}</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	<h2>{{locale.user_list.new}}</h2>
+	<div>
+		<div><input type="checkbox" onchange="toggleAllCheckBoxes('selected_new_profile_list')"></div>
+		<div><button onclick="sendCommandAllCheckedBoxes('users','delete','selected_new_profile_list')">{{locale.nav.delete}}</button></div>
+	</div>
+	<table id="new">
+		<thead>
+			<tr>
+				<th></th>
+				<th>{{locale.user_list.name}}</th>
+				<th>{{locale.user_list.email}}</th>
+				<th>{{locale.user_list.access}}</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for new_profile in new_profile_list %}
+				<tr>
+					<td><input type="checkbox" name="selected_new_profile_list" value="{{ new_profile.key.urlsafe() }}"></td>
+					<td>{{ new_profile.name }}</td>
+					<td>{{ new_profile.email }}</td>
+					<td>{{ new_profile.access }}</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+{% endblock %}

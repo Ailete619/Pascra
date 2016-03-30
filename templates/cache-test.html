@@ -1,0 +1,24 @@
+{% extends "base-layout.html" %}
+{% block inline_css %}
+label
+	{
+	width: 8em;
+	}
+#url
+	{
+	width: 48em;
+	}
+{% endblock %}
+{% block content %}
+	<form method="POST">
+		<label for="url">{{locale.cache.url}}</label>
+		<input id="url" name="url" required="required"/>
+		<label for="options">{{locale.cache.options}}</label>
+		<select id="options" name="options">
+			<option value="no_cache">{{locale.cache.no_cache}}</option>
+			<option value="cache" selected="selected">{{locale.cache.cache}}</option>
+			<option value="update_cache">{{locale.cache.update_cache}}</option>
+		</select>
+		<button type="submit">{{locale.cache.submit}}</button>
+	</form>
+{% endblock %}

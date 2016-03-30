@@ -1,0 +1,22 @@
+info:
+  user: ユーザー
+
+menu:
+  list: 表
+  new: 新しい
+  search: Search
+  souces: Sources
+  users: ユーザー
+
+nav:
+  delete: Delete
+  login: ログイン
+  logout: ログアウト
+
+user_list:
+  access: Access Level
+  email: メール
+  id: ID
+  name: 名前
+  new: New User Profiles
+  users: User Profiles

@@ -1,0 +1,28 @@
+cache:
+  cache: Enabled
+  no_cache: Disabled
+  options: Cache
+  submit: Fetch!
+  update_cache: Force Update
+  url: URL
+
+info:
+  user: User
+
+menu:
+  cache: Cache
+  cache_delete: Delete
+  cache_test: Test
+  javascript: Javascript
+  javascript_test: Test
+  scraper: Scraper
+  scrap_help: Help
+  scrap_request: From Request
+  scrap_source: From Source
+  users: Users
+  users_list: List
+  users_new: New
+
+nav:
+  signin: Signin
+  signout: Signout

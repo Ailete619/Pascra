@@ -1,0 +1,23 @@
+{% extends "base-layout.html" %}
+{% block content %}
+<h4>words</h4>
+	{%for k,v in results["strings"].iteritems()%}
+		{{k}} : {{v}}<br>
+	{%endfor%}
+<h4>digrams</h4>
+	{%for k,v in results["combinations"]["2"].iteritems()%}
+		{{k}} : {{v}}<br>
+	{%endfor%}
+<h4>trigrams</h4>
+	{%for k,v in results["combinations"]["3"].iteritems()%}
+		{{k}} : {{v}}<br>
+	{%endfor%}
+<h4>quadrigrams</h4>
+	{%for k,v in results["combinations"]["4"].iteritems()%}
+		{{k}} : {{v}}<br>
+	{%endfor%}
+<h4>pentagrams</h4>
+	{%for k,v in results["combinations"]["5"].iteritems()%}
+		{{k}} : {{v}}<br>
+	{%endfor%}
+{% endblock %}

@@ -5,6 +5,18 @@ api_version: 1
 threadsafe: true
 
 handlers:
+- url: /favicon.ico
+  static_files: images/favicon.ico
+  upload: images/favicon.ico
+- url: /images
+  static_dir: images
+- url: /javascript
+  static_dir: javascript
+- url: /locales
+  static_dir: locales
+  application_readable: true
+- url: /stylesheets
+  static_dir: stylesheets
 - url: /.*
   script: pascra.app
   secure: always

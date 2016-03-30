@@ -1,8 +1,12 @@
 # -*- coding: UTF-8 -*-
-from google.appengine.api import taskqueue, users
+import ailete619.beakon.handlers
+import ailete619.beakon.users
+import cache
+from google.appengine.api import taskqueue, urlfetch
+#import javascript_engine
 import json
 import logging
-from scrap import WebsiteScraper
+from scrap import WebsiteScraper, ItemHandler
 import urllib
 import urllib2
 import webapp2
@@ -15,15 +19,13 @@ class BaseHandler(webapp2.RequestHandler):
         """ Returns a Jinja2 renderer cached in the app registry. """
         return jinja2.get_jinja2(app=self.app)
     def render_response(self, _template, **context):
-        """ Renders a template and writes the result to the GAE_response. """
+        """ Renders a template and writes the result to the response. """
         rv = self.jinja2.render_template(_template, **context)
-        self.GAE_response.write(rv)
+        self.response.write(rv)
 
-class MiscHandler(BaseHandler):
+class HomeHandler(ailete619.beakon.handlers.BaseHandler):
     def get(self,**kwargs):
-        self.render_response('/pascra.html', **kwargs)
-    def post(self,**kwargs):
-        self.render_response('/pascra.html', **kwargs)
+        self.render_response('pascra.html')
 
 class RequestTestingHandler(BaseHandler):
     def get(self,**kwargs):
@@ -110,14 +112,14 @@ class RequestTestingHandler(BaseHandler):
         encoding = self.request.get("encoding")
         selectors = self.request.get("selectors")
         selectors = selectors.splitlines()
-        #GAE_response = requests.post("/scrap/page", data={'url': url, 'encoding': encoding, 'selectors': selectors})
+        #response = requests.post("/scrap/page", data={'url': url, 'encoding': encoding, 'selectors': selectors})
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         post_data_encoded = urllib.urlencode({'json':json.dumps({'url': url, 'encoding': encoding, 'selectors': selectors})})
         request_object = urllib2.Request("https://pascra619.appspot.com/scrap/page", post_data_encoded,http_headers)
         response = urllib2.urlopen(request_object)
-        logging.info('GAE_response')
-        #logging.info(GAE_response.read())
-        self.GAE_response.write(response.read())
+        logging.info('response')
+        #logging.info(response.read())
+        self.response.write(response.read())
 
 class ScrapingHandler(BaseHandler):
     def get(self,**kwargs):
@@ -133,16 +135,45 @@ class ScrapingHandler(BaseHandler):
                                                                          })
         self.response.set_status(200)
         
+class SourceScrapingHandler(BaseHandler):
+    def post(self,**kwargs):
+        logging.info("headers="+str(self.request.headers))
+        logging.info("page_source="+str(self.request.get("page_source")))
+        logging.info("body="+str(self.request.body))
+        request = json.loads(self.request.get("json"))
+        self.response.write(json.dumps(ItemHandler.scrapSource(request["page_source"], request)))
 
 
 config = {}
+config['webapp2_extras.auth'] = {
+                                'user_model': 'ailete619.beakon.users.Profile',
+                                'user_attributes': ['access','email','login','name']
+                                }
+config['webapp2_extras.sessions'] = {
+                                    'secret_key': 'my-super-secret-key',
+                                    }
 
 app = webapp2.WSGIApplication([
-                               webapp2.Route(r'/scrap/test', RequestTestingHandler),
-                               webapp2.Route(r'/scrap', ScrapingHandler),
+                               webapp2.Route('/cache', cache.CacheHandler),
+                               webapp2.Route('/cache/delete', cache.CacheDeleteHandler),
+                               webapp2.Route('/cache/no', cache.NoCacheHandler),
+                               webapp2.Route('/cache/test', cache.CacheTestHandler),
+                               webapp2.Route('/scrap', ScrapingHandler),
+                               webapp2.Route('/scrap/source', SourceScrapingHandler),
+                               webapp2.Route('/scrap/test', RequestTestingHandler),
+                               webapp2.Route('/scrap/hlp', RequestTestingHandler),
+                               webapp2.Route('/users/access/denied', ailete619.beakon.users.AccessDeniedHandler),
+                               webapp2.Route('/users/delete', ailete619.beakon.users.DeleteHandler),
+                               webapp2.Route('/users/google/signin', ailete619.beakon.users.GoogleSignInHandler),
+                               webapp2.Route('/users/list', ailete619.beakon.users.ListHandler),
+                               webapp2.Route('/users/save', ailete619.beakon.users.SaveHandler),
+                               webapp2.Route('/users/signin', ailete619.beakon.users.SignInHandler),
+                               webapp2.Route('/users/signout', ailete619.beakon.users.SignOutHandler),
+                               webapp2.Route('/users/test', ailete619.beakon.users.TestHandler),
                                webapp2.Route(r'/internal/item', scrap.ItemHandler),
                                webapp2.Route(r'/internal/list', scrap.ListHandler),
-                               ('.*', MiscHandler)
+                               #webapp2.Route(r'/javascript/test', javascript_engine.TestHandler),
+                               ('/?', HomeHandler)
                               ],
                               config=config,
                               debug=False)
