@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 import ailete619.beakon.handlers
 import ailete619.beakon.users
-import cache
+import fetch
 from google.appengine.api import taskqueue, urlfetch
 #import javascript_engine
 import json
@@ -154,10 +154,9 @@ config['webapp2_extras.sessions'] = {
                                     }
 
 app = webapp2.WSGIApplication([
-                               webapp2.Route('/cache', cache.CacheHandler),
-                               webapp2.Route('/cache/delete', cache.CacheDeleteHandler),
-                               webapp2.Route('/cache/no', cache.NoCacheHandler),
-                               webapp2.Route('/cache/test', cache.CacheTestHandler),
+                               webapp2.Route('/cache/delete', fetch.CacheDeleteHandler),
+                               webapp2.Route('/fetch', fetch.Handler),
+                               webapp2.Route('/fetch/test', fetch.TestHandler),
                                webapp2.Route('/scrap', ScrapingHandler),
                                webapp2.Route('/scrap/source', SourceScrapingHandler),
                                webapp2.Route('/scrap/test', RequestTestingHandler),
@@ -166,7 +165,7 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/users/delete', ailete619.beakon.users.DeleteHandler),
                                webapp2.Route('/users/google/signin', ailete619.beakon.users.GoogleSignInHandler),
                                webapp2.Route('/users/list', ailete619.beakon.users.ListHandler),
-                               webapp2.Route('/users/save', ailete619.beakon.users.SaveHandler),
+                               webapp2.Route('/users/edit', ailete619.beakon.users.EditHandler),
                                webapp2.Route('/users/signin', ailete619.beakon.users.SignInHandler),
                                webapp2.Route('/users/signout', ailete619.beakon.users.SignOutHandler),
                                webapp2.Route('/users/test', ailete619.beakon.users.TestHandler),

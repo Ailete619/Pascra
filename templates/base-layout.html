@@ -34,16 +34,15 @@
 				<nav>
 					<ul>
 						<li>{{locale.menu.scraper}}<ul>{% if user %}<li><a href="/scrap/test">{{locale.menu.scrap_request}}</a></li>{% endif %}<li><a href="/scrap/source">{{locale.menu.scrap_source}}</a></li><li><a href="/scrap/help">{{locale.menu.scrap_help}}</a></li></ul></li>
-						{% if user %}<li>{{locale.menu.cache}}<ul><li><a href="/cache/test">{{locale.menu.cache_test}}</a></li><li><a href="/cache/delete">{{locale.menu.cache_delete}}</a></li></ul></li>{% endif %}
+						{% if user %}<li>{{locale.menu.fetch}}<ul><li><a href="/fetch/test">{{locale.menu.fetch_test}}</a></li><li><a href="/cache/delete">{{locale.menu.cache_delete}}</a></li></ul></li>{% endif %}
 						{% if user and user.access=="admin" %}<li>{{locale.menu.javascript}}<ul><li><a href="/javascript/test">{{locale.menu.javascript_test}}</a></li></ul></li>{% endif %}
 						{% if user and user.access=="admin" %}<li>{{locale.menu.users}}<ul><li><a href="/users/list">{{locale.menu.users_list}}</a></li><li><a href="/users/edit">{{locale.menu.users_new}}</a></li></ul></li>{% endif %}
 					</ul>
 					{% if user %}
-						<label for="username">{{locale.info.user}}:</label>
-						<span id="username">{{user.access}}> {{user.name}} ({{user.email}})</span>
-						<a class="log" href="/users/signout">{{locale.nav.signout}}</a>
+						<span id="username" class="align-right">{{user.access}}> {{user.name}}</span>
+						<a class="button" href="/users/signout">{{locale.nav.signout}}</a>
 					{% else %}
-						<a class="log" href="/users/signin">{{locale.nav.signin}}</a>
+						<a class="button align-right" href="/users/signin">{{locale.nav.signin}}</a>
 					{% endif %}
 				</nav>
 			</header>

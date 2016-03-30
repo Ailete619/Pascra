@@ -127,7 +127,8 @@ class GoogleSignInHandler(BaseHandler):
         # if there is no Google user profile, the user is redirected to an access denied page
         if not google_user:
             logging.warning(self.__class__.__name__+".get() : no Google user signed in!")
-            self.redirect('/users/access/denied')
+            self.redirect(users.create_login_url("/"))
+            return
 
         # checks if the current user has a profile registered with our application
         profile = Profile.query(Profile.google_user_id == google_user.user_id()).get()
@@ -223,8 +224,6 @@ class SignInHandler(BaseHandler):
         password = self.request.get('userPassword')
         try:
             user = self.auth.get_user_by_password(login, password, remember=True)
-            logging.info("user="+str(user))
-            #self.redirect("/users/test")
             self.render_response('/users/signin.html',self.context)
         except (InvalidAuthIdError, InvalidPasswordError) as e:
             logging.info('Login failed for user %s because of %s', login, type(e))

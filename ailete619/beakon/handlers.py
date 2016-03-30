@@ -102,6 +102,16 @@ class BaseHandler(webapp2.RequestHandler):
     def signout(self):
         self.auth.unset_session()
 
+class UserHandler(BaseHandler):
+    def get(self,**kwargs):
+        auth = self.auth
+        if not auth.get_user_by_session():
+            self.redirect("/users/access/denied")
+    def post(self,**kwargs):
+        auth = self.auth
+        if not auth.get_user_by_session():
+            self.redirect("/users/access/denied")
+
 class DispatchHandler(BaseHandler):
     def get_command(self, **kwargs):
         logging.info(self.__class__.__name__+".get_command("+str(kwargs)+")")

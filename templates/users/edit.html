@@ -1,15 +1,16 @@
 {% extends "/base-layout.html" %}
 {% block content %}
-	<form method="post" action="/system/users/save{% if profile %}/_{{ profile.key.urlsafe() }}"{% endif %}">
-		<label for="userEmail">Email address (ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹)</label>
+	<form method="post" action="/system/users/edit">
+		{% if profile %}<input id="userID" name="userID" type="hidden" value="{{ profile.key.urlsafe() }}">{% endif %}
+		<label for="userEmail">{{locale.users.email}}</label>
 		<input id="userEmail" name="userEmail" required="required"{% if profile %} value="{{ profile.email }}"{% endif %} />
-		<label for="userName">Name (å��å‰�)</label>
+		<label for="userName">{{locale.users.name}}</label>
 		<input id="userName" name="userName" required="required"{% if profile %} value="{{ profile.name }}"{% endif %} />
-		<label for="userAccessLevel">Access level (ã‚¢ã‚¯ã‚»ã‚¹ãƒ¬ãƒ™ãƒ«)</label>
+		<label for="userAccessLevel">{{locale.users.access}}</label>
 		<select id="userAccessLevel" name="userAccessLevel" required="required">
-			<option value="admin"{% if profile and profile.access == "admin" %} selected="selected"{% endif %}>Admin (ã‚¢ãƒ‰ãƒŸãƒ³)</option>
-			<option value="user"{% if not profile or profile.access == "user" %} selected="selected"{% endif %}>User(ãƒ¦ãƒ¼ã‚¶)</option>
+			<option value="admin"{% if profile and profile.access == "admin" %} selected="selected"{% endif %}>{{locale.users.admin}}</option>
+			<option value="user"{% if not profile or profile.access == "user" %} selected="selected"{% endif %}>{{locale.users.user}}</option>
 		</select>
-		<button type="submit">{% if profile %}Save (ä¿�å­˜){% else %}Create (ä½œã‚‹){% endif %}</button>
+		<button type="submit">{% if profile %}{{locale.nav.save}}{% else %}{{locale.nav.create}}{% endif %}</button>
 	</form>
 {% endblock %}

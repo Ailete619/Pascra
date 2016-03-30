@@ -23,7 +23,7 @@ background-color: #c3ffc3;
 table td + td { border-left:1px solid white; }
 {% endblock %}
 {% block content %}
-	<h2>{{locale.user_list.user}}</h2>
+	<h2>{{locale.users.users}}</h2>
 	<div>
 		<div><input type="checkbox" onchange="toggleAllCheckBoxes('selected_user_profile_list')"></div>
 		<div><button onclick="sendCommandAllCheckedBoxes('users','delete','selected_user_profile_list')">{{locale.nav.delete}}</button></div>
@@ -32,10 +32,10 @@ table td + td { border-left:1px solid white; }
 		<thead>
 			<tr>
 				<th></th>
-				<th>{{locale.user_list.id}}</th>
-				<th>{{locale.user_list.name}}</th>
-				<th>{{locale.user_list.email}}</th>
-				<th>{{locale.user_list.access}}</th>
+				<th>{{locale.users.id}}</th>
+				<th>{{locale.users.name}}</th>
+				<th>{{locale.users.email}}</th>
+				<th>{{locale.users.access}}</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -43,14 +43,14 @@ table td + td { border-left:1px solid white; }
 				<tr>
 					<td><input type="checkbox" name="selected_user_profile_list" value="{{ user_profile.key.urlsafe() }}"></td>
 					<td>{{ user_profile.userid }}</td>
-					<td><a target="{{ user_profile.key.urlsafe() }}" href="/users/edit/_{{ user_profile.key.urlsafe() }}">{{ user_profile.name }}</a></td>
+					<td><a target="{{ user_profile.key.urlsafe() }}" href="/users/edit?{{ user_profile.key.urlsafe() }}">{{ user_profile.name }}</a></td>
 					<td>{{ user_profile.email }}</td>
 					<td>{{ user_profile.access }}</td>
 				</tr>
 			{% endfor %}
 		</tbody>
 	</table>
-	<h2>{{locale.user_list.new}}</h2>
+	<h2>{{locale.users.new_users}}</h2>
 	<div>
 		<div><input type="checkbox" onchange="toggleAllCheckBoxes('selected_new_profile_list')"></div>
 		<div><button onclick="sendCommandAllCheckedBoxes('users','delete','selected_new_profile_list')">{{locale.nav.delete}}</button></div>
@@ -59,9 +59,9 @@ table td + td { border-left:1px solid white; }
 		<thead>
 			<tr>
 				<th></th>
-				<th>{{locale.user_list.name}}</th>
-				<th>{{locale.user_list.email}}</th>
-				<th>{{locale.user_list.access}}</th>
+				<th>{{locale.users.name}}</th>
+				<th>{{locale.users.email}}</th>
+				<th>{{locale.users.access}}</th>
 			</tr>
 		</thead>
 		<tbody>
