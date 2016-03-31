@@ -135,15 +135,6 @@ class ScrapingHandler(BaseHandler):
                                                                          })
         self.response.set_status(200)
         
-class SourceScrapingHandler(BaseHandler):
-    def post(self,**kwargs):
-        logging.info("headers="+str(self.request.headers))
-        logging.info("page_source="+str(self.request.get("page_source")))
-        logging.info("body="+str(self.request.body))
-        request = json.loads(self.request.get("json"))
-        self.response.write(json.dumps(ItemHandler.scrapSource(request["page_source"], request)))
-
-
 config = {}
 config['webapp2_extras.auth'] = {
                                 'user_model': 'ailete619.beakon.users.Profile',
@@ -158,7 +149,7 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/fetch', fetch.Handler),
                                webapp2.Route('/fetch/test', fetch.TestHandler),
                                webapp2.Route('/scrap', ScrapingHandler),
-                               webapp2.Route('/scrap/source', SourceScrapingHandler),
+                               webapp2.Route('/scrap/source', scrap.SourceTestHandler),
                                webapp2.Route('/scrap/test', RequestTestingHandler),
                                webapp2.Route('/scrap/hlp', RequestTestingHandler),
                                webapp2.Route('/users/access/denied', ailete619.beakon.users.AccessDeniedHandler),

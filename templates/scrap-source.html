@@ -1,0 +1,21 @@
+{% extends "base-layout.html" %}
+{% block inline_css %}
+label:not(:first-child)
+	{
+	margin-left: 1em;
+	}
+{% endblock %}
+{% block content %}
+	<form method="POST">
+		<label for="fetchURL">{{locale.fetch.url}}</label>
+		<input id="fetchURL" name="fetchURL" required="required"/>
+		<label for="fetchOption">{{locale.fetch.option}}</label>
+		<select id="fetchOption" name="fetchOption">
+			<option value="no_cache">{{locale.fetch.no_cache}}</option>
+			<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
+			<option value="update_cache">{{locale.fetch.update_cache}}</option>
+		</select>
+		<button type="submit">{{locale.fetch.submit}}</button>
+	</form>
+	<div id="">{{response}}</div>
+{% endblock %}

@@ -1,10 +1,6 @@
-
 # -*- coding: utf-8 -*-
-'''
 
-@author: ailete619
-'''
-
+import ailete619.beakon.handlers
 from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
 from google.appengine.ext import deferred
@@ -352,3 +348,15 @@ class WebsiteScraper(object):
             deferred.defer(self.scrapURLList,scraping_item)
         self.send_response()
         self.scrap_list = self.scrap_list[1:]
+
+class SourceTestHandler(ailete619.beakon.handlers.UserHandler):
+    def post(self,**kwargs):
+        self.render_response('scrap-source.html')
+    def post(self,**kwargs):
+        logging.info("headers="+str(self.request.headers))
+        logging.info("page_source="+str(self.request.get("page_source")))
+        logging.info("body="+str(self.request.body))
+        request = json.loads(self.request.get("json"))
+        self.response.write(json.dumps(ItemHandler.scrapSource(request["page_source"], request)))
+
+

@@ -14,7 +14,7 @@ class CachedPage(ndb.Model):
     headers = ndb.TextProperty()
     source = ndb.TextProperty()
 
-class Handler(ailete619.beakon.handlers.BaseHandler):
+class Handler(ailete619.beakon.handlers.UserHandler):
     def fetch(self):
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
         headers = self.request.get("headers")
@@ -46,11 +46,12 @@ class Handler(ailete619.beakon.handlers.BaseHandler):
             response = self.fetch()
             if response.status_code==200:
                 logging.info("not from cache")
+                source = response.content.decode('utf_8').encode('utf_8')
                 if option!="no_cache":
                     logging.info("cached")
-                    cached_page = CachedPage(id=url,source=response.content)
+                    cached_page = CachedPage(id=url,source=source)
                     cached_page.put()
-                self.response.out.write(response.content)
+                self.response.out.write(source)
             else:
                 self.error(response.status_code)
                 self.response.out.write(response.content)
@@ -62,9 +63,14 @@ class CacheDeleteHandler(ailete619.beakon.handlers.UserHandler):
     def get(self,**kwargs):
         self.render_response('cache-delete.html')
     def post(self,**kwargs):
-        fetch_url = self.request.get("fetchURL")
-        url_encoded_data = urllib.urlencode({"url":fetch_url})
-        self.response.write(urlfetch.fetch(url=("https://"+self.request.host+"/fetch/cache?"+url_encoded_data),method=urlfetch.GET).content)
+        delete_url = self.request.get("deleteURL")
+        cached_page = CachedPage.get_by_id(delete_url)
+        if cached_page:
+            cached_page.key.delete()
+            self.context["message"] = "deleted"
+        else:
+            self.context["message"] = "not_found"
+        self.render_response('cache-delete.html')
         
 class TestHandler(ailete619.beakon.handlers.UserHandler):
     def get(self,**kwargs):
@@ -74,7 +80,6 @@ class TestHandler(ailete619.beakon.handlers.UserHandler):
         fetch_option = self.request.get("fetchOption")
         url_encoded_data = urllib.urlencode({"url":fetch_url,"option":fetch_option})
         response = urlfetch.fetch(url=("https://"+self.request.host+"/fetch?"+url_encoded_data),method=urlfetch.GET).content
-        self.context["response"] = response
-        logging.info(response)
+        self.context["response"] = response.decode('utf_8')
         self.render_response('fetch-test.html')
         

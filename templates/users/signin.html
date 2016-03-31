@@ -1,0 +1,10 @@
+{% extends "/base-layout.html" %}
+{% block content %}
+	<form method="post" action="/users/signin">
+		<label for="userLogin">{{locale.users.login}}</label>
+		<input id="userLogin" name="userLogin" required="required" />
+		<label for="userPassword">{{locale.users.password}}</label>
+		<input id="userPassword" name="userPassword" required="required" />
+		<button type="submit">{{locale.nav.signin}}</button>
+	</form>
+{% endblock %}

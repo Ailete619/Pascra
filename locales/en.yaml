@@ -1,3 +1,9 @@
+cache:
+  deleted: The URL has been deleted from the cache.
+  not_found: The URL was not cached! 
+  submit: Delete this URL from the cache!
+  url: URL
+
 fetch:
   cache: Enabled
   no_cache: Disabled
