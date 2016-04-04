@@ -5,7 +5,7 @@
 '''
 from google.appengine.api import users
 from google.appengine.ext import ndb
-from handlers import BaseHandler
+from handlers import AdminHandler, BaseHandler, UserHandler
 import logging
 import time
 from webapp2_extras import security
@@ -73,7 +73,7 @@ class AccessDeniedHandler(BaseHandler):
     def get(self,**kwargs):
         self.render_response('/users/access-denied.html')
 
-class DeleteHandler(BaseHandler):
+class DeleteHandler(AdminHandler):
     def finish(self,**kwargs):
         if "selected_user_profile_list" in kwargs:
             Profile.deleteAll(kwargs["selected_user_profile_list"])
@@ -82,7 +82,7 @@ class DeleteHandler(BaseHandler):
         else:
             logging.error("tica.users.delegates.delete.process(): no list of dictionaries or keywords found!")
 
-class EditHandler(BaseHandler):
+class EditHandler(AdminHandler):
     def get(self):
         user_id = self.request.get("id")
         if user_id:
@@ -91,17 +91,29 @@ class EditHandler(BaseHandler):
                 profile = key.get()
                 self.context["profile"] = profile
         self.render_response('/users/edit.html')
-    def post(self,**kwargs):
-        if "key" in kwargs:
-            key = ndb.Key(urlsafe=kwargs["key"])
+    def post(self):
+        id = self.request.get("userID")
+        access=self.request.get("userAccessLevel")
+        email=self.request.get("userEmail")
+        login=self.request.get("userLogin")
+        if not login:
+            login = email
+        name=self.request.get("userName")
+        password=self.request.get("userPassword")
+        profile = None
+        if id:
+            key = ndb.Key(urlsafe=id)
             if key:
                 profile = key.get()
-                profile.access=self.response["userAccessLevel"]
-                profile.email=self.response["userEmail"]
-                profile.login=self.response["userLogin"]
-                profile.name=self.response["userName"]
-                profile.password=self.response["userPassword"]
+                profile.access=access
+                profile.email=email
+                profile.login=login
+                profile.name=name
+                if password:
+                    profile.password=password
                 profile.put()
+            else:
+                self.context["error_message"] = self.context["locale"]["users"]["not_found"]
         else:
             access=self.request.get("userAccessLevel")
             email=self.request.get("userEmail")
@@ -115,9 +127,12 @@ class EditHandler(BaseHandler):
               unique_properties,
               access=access, email=email, login=login, name=name, password_raw=password,
               verified=True)
-            if not user_data[0]: #user_data is a tuple
-                logging.info('Unable to create user for login '+str(login)+' because of duplicate keys '+str(user_data[1]))
-                return
+            if user_data[0]: #user_data is a tuple
+                profile = user_data[0]
+            else:
+                self.context["error_message"] = self.context["locale"]["users"]["could_not_create"]
+        self.context["profile"] = profile
+        self.render_response('/users/edit.html')
 
 class GoogleSignInHandler(BaseHandler):
     def get(self):
@@ -163,58 +178,10 @@ class GoogleSignInHandler(BaseHandler):
                 profile.put()
         self.redirect("/")
  
-class ListHandler(BaseHandler):
+class ListHandler(AdminHandler):
     def get(self):
         self.context["user_profile_list"] = Profile.query()
         self.render_response('/users/list.html')
-
-class SaveHandler(BaseHandler):
-    def post(self,**kwargs):
-        if "key" in kwargs:
-            key = ndb.Key(urlsafe=kwargs["key"])
-            if key:
-                profile = key.get()
-                profile.access=self.response["userAccessLevel"]
-                profile.email=self.response["userEmail"]
-                profile.login=self.response["userLogin"]
-                profile.name=self.response["userName"]
-                profile.password=self.response["userPassword"]
-                profile.put()
-        else:
-            access=self.request.get("userAccessLevel")
-            email=self.request.get("userEmail")
-            login=self.request.get("userLogin")
-            if not login:
-                login = email
-            name=self.request.get("userName")
-            password=self.request.get("userPassword")
-            unique_properties = ['login']
-            user_data = self.user_model.create_user(login,
-              unique_properties,
-              access=access, email=email, login=login, name=name, password_raw=password,
-              verified=True)
-            if not user_data[0]: #user_data is a tuple
-                logging.info('Unable to create user for login '+str(login)+' because of duplicate keys '+str(user_data[1]))
-                return
-            
-            """
-            user = user_data[1]
-            user_id = user.get_id()
-            
-            signup_token = self.user_model.create_signup_token(user_id)
-
-            # store user data in the session
-            self.auth.set_session(self.auth.store.user_to_dict(user), remember=True)
- 
-            # remove signup token, we don't want users to come back with an old link
-            self.user_model.delete_signup_token(user.get_id(), signup_token)
-         
-            if not user.verified:
-                user.verified = True
-                user.put()"""
-             
-    def finish(self,**kwargs):
-        self.redirect('/users/list')
 
 class SignInHandler(BaseHandler):
     def get(self):
@@ -233,18 +200,3 @@ class SignOutHandler(BaseHandler):
     def get(self):
         self.auth.unset_session()
         self.redirect("/")
-
-class HomePageHandler(BaseHandler):
-    def get(self):
-        self.render_response('/users/home.html')
-
-class TestHandler(BaseHandler):
-    def get(self):
-        auth = self.auth
-        logging.info("auth._user="+str(auth._user))
-        logging.info("auth.get_user_by_session()="+str(auth.get_user_by_session()))
-        if not auth.get_user_by_session():
-            self.redirect("/users/access/denied")
-        else:
-            self.render_response('/users/test.html')
-

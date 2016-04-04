@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import ailete619.beakon.handlers
+from fetch import CachedPage
 from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
 from google.appengine.ext import deferred
@@ -37,8 +38,8 @@ class BaseHandler(webapp2.RequestHandler):
         """ Renders a template and writes the result to the response. """
         rv = self.jinja2.render_template(_template, **context)
         self.response.write(rv)
-    def fetch_page(self, url, method=None, data=None, headers=None, cached="no-cache"):
-        url_encoded_data = {}
+    def fetch_page(self, url, option, encoding, method=None, data=None, headers=None):
+        url_encoded_data = {"url":url,"option":option,"encoding":encoding}
         if data:
             url_encoded_data["data"] = data
         if headers:
@@ -48,7 +49,9 @@ class BaseHandler(webapp2.RequestHandler):
         if url:
             url_encoded_data["url"] = url
         url_encoded_data = urllib.urlencode(url_encoded_data)
-        return urlfetch.fetch(url="/fetch/"+cached,payload=url_encoded_data,method=urlfetch.GET)
+        logging.info("url_encoded_data="+str(url_encoded_data))
+        logging.info("https://"+self.request.host+"/fetch")
+        return urlfetch.fetch(url="https://"+self.request.host+"/fetch?"+url_encoded_data,method=urlfetch.GET)
     def send_request(self, url, method=None, data=None, headers=None):
         # helper function that builds the THHP Requests, send them and return the results
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
@@ -146,6 +149,8 @@ class ItemHandler(BaseHandler):
                     scraps[extractor["type"]] = etree.tostring(element, method='html', encoding="utf-8")
                 elif extractor["type"]=="text":
                     scraps[extractor["type"]] = etree.tostring(element, method='text', encoding="utf-8")
+                elif extractor["type"]=="trimmed-text":
+                    scraps[extractor["type"]] = etree.tostring(element, method='text', encoding="utf-8").strip()
                 elif extractor["type"]=="attribute":
                     if extractor["name"] in element.attrib:
                         scraps[extractor["type"]] = element.attrib[extractor["name"]]
@@ -222,7 +227,7 @@ class ItemHandler(BaseHandler):
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
-        response = self.fetch_pageS(url=url,data=post_data,cached="cache")
+        response = self.fetch_page(url=url,option="cache",encoding="utf_8",data=post_data)
         url_scraps = {}
         url_scraps["status"] = response.status_code
         if response.status_code == 200:
@@ -258,7 +263,7 @@ class ItemHandler(BaseHandler):
                             #logging.info("post_data="+str(post_data))
                         part_loaded = False
                         while part_loaded==False:
-                            response = self.send_request(url=next_url,data=post_data)
+                            response = self.fetch_page(url=url,option="cache",encoding="utf_8",data=post_data)
                             if response.status_code == 200:
                                 url_content.append(response.content)
                                 part_loaded = True
@@ -316,7 +321,10 @@ class ItemHandler(BaseHandler):
                     self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
             response_headers["edr_eof"] = "True"
             logging.info(item_scraps)
-            self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+            if "response_url" in request:
+                self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+            else:
+                self.response.write(json.dumps(item_scraps))
         except DeadlineExceededError:
             logging.info("DeadlineExceededError")
             urls = request["urls"]
@@ -349,14 +357,64 @@ class WebsiteScraper(object):
         self.send_response()
         self.scrap_list = self.scrap_list[1:]
 
-class SourceTestHandler(ailete619.beakon.handlers.UserHandler):
-    def post(self,**kwargs):
+class SourceHandler(ailete619.beakon.handlers.UserHandler):
+    def get(self,**kwargs):
         self.render_response('scrap-source.html')
     def post(self,**kwargs):
-        logging.info("headers="+str(self.request.headers))
-        logging.info("page_source="+str(self.request.get("page_source")))
-        logging.info("body="+str(self.request.body))
-        request = json.loads(self.request.get("json"))
-        self.response.write(json.dumps(ItemHandler.scrapSource(request["page_source"], request)))
+        url = self.request.get("fetchURL")
+        option = self.request.get("fetchOption")
+        encoding = self.request.get("fetchEncoding")
+        request = {}
+        selectors = self.request.get("scrapSelectors")
+        if selectors:
+            request["selectors"] = json.loads(selectors)
+        tabular_selectors = self.request.get("scrapTabularSelectors")
+        if tabular_selectors:
+            request["tabular_selectors"] = json.loads(tabular_selectors)
+        if option=="cache":
+            cached_page = CachedPage.get_by_id(url)
+            if cached_page:
+                source = cached_page.source
+        if not source:
+            source = self.request.get("scrapSource")
+            try:
+                source = source.decode(encoding).encode('utf_8')
+            except UnicodeDecodeError:
+                pass
+        if option=="force_upgrade" or (option=="cache" and not cached_page):
+            cached_page = CachedPage(id=url,source=source)
+            cached_page.put()
+        self.context["response"] = json.dumps(ItemHandler.scrapSource(source, request))
+        self.context["url"] = url
+        self.context["js"] = {}
+        self.context["js"]["fetchOption"] = '"'+option+'"'
+        self.context["js"]["fetchEncoding"] = '"'+encoding+'"'
+        self.context["source"] = source
+        self.context["selectors"] = selectors
+        self.context["tabular_selectors"] = tabular_selectors
+        self.render_response('scrap-source.html')
 
+class TestHandler(ailete619.beakon.handlers.UserHandler):
+    def get(self,**kwargs):
+        self.render_response('scrap-test.html')
+    def post(self,**kwargs):
+        request = {}
+        url_list = self.request.get("scrapURLList")
+        option = self.request.get("fetchOption")
+        encoding = self.request.get("fetchEncoding")
+        request["urls"] = [{"string":url,"encoding":encoding} for url in url_list.splitlines() if url]
+        selectors = self.request.get("scrapSelectors")
+        if selectors:
+            request["selectors"] = json.loads(selectors)
+        tabular_selectors = self.request.get("scrapTabularSelectors")
+        if tabular_selectors:
+            request["tabular_selectors"] = json.loads(tabular_selectors)
+        self.context["response"] = unicode(urlfetch.fetch(url="https://"+self.request.host+"/internal/item",payload=urllib.urlencode({"json":json.dumps(request)}),method=urlfetch.POST).content,'unicode-escape')
+        self.context["url_list"] = url_list
+        self.context["js"] = {}
+        self.context["js"]["fetchOption"] = '"'+option+'"'
+        self.context["js"]["fetchEncoding"] = '"'+encoding+'"'
+        self.context["selectors"] = selectors
+        self.context["tabular_selectors"] = tabular_selectors
+        self.render_response('scrap-test.html')
 

@@ -6,13 +6,12 @@ form>ul
 	flex-wrap: wrap;
 	}
 form>ul>li:first-child,
-form>ul>li:nth-last-child(3),
 form>ul>li:nth-last-child(2),
 form>ul>li:last-child
 	{
 	width: 100%;
 	}
-form>ul>li:nth-child(3)
+form>ul>li:nth-last-child(3)
 	{
 	margin-left: 1em;
 	}
@@ -30,12 +29,12 @@ textarea
 	<form method="POST">
 		<ul>
 			<li>
-				<label for="fetchURL">{{locale.fetch.url}}</label>
-				<input id="fetchURL" name="fetchURL" {%if url%}value="{{url}}" {% endif %}required="required"/>
+				<label for="scrapURLList">{{locale.scrap.url_list}}</label>
+				<textarea id="scrapURLList" name="scrapURLList"></textarea>
 			</li>
 			<li>
 				<label for="fetchOption">{{locale.fetch.option}}</label>
-				<select id="fetchOption" name="fetchOption" required="required">
+				<select id="fetchOption" name="fetchOption">
 					<option value="no_cache">{{locale.fetch.no_cache}}</option>
 					<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
 					<option value="update_cache">{{locale.fetch.update_cache}}</option>
@@ -43,20 +42,16 @@ textarea
 			</li>
 			<li>
 				<label for="fetchEncoding">{{locale.fetch.encoding}}</label>
-				<select id="fetchEncoding" name="fetchEncoding" required="required">
+				<select id="fetchEncoding" name="fetchEncoding">
 				</select>
 			</li>
 			<li>
-				<label for="scrapSource">{{locale.scrap.source|e}}</label>
-				<textarea id="scrapSource" name="scrapSource">{{source}}</textarea>
-			</li>
-			<li>
 				<label for="scrapSelectors">{{locale.scrap.selectors}}</label>
-				<textarea id="scrapSelectors" name="scrapSelectors">{{selectors}}</textarea>
+				<textarea id="scrapSelectors" name="scrapSelectors"></textarea>
 			</li>
 			<li>
 				<label for="scrapTabularSelectors">{{locale.scrap.tabular_selectors}}</label>
-				<textarea id="scrapTabularSelectors" name="scrapTabularSelectors">{{tabular_selectors}}</textarea>
+				<textarea id="scrapTabularSelectors" name="scrapTabularSelectors"></textarea>
 			</li>
 		</ul>
 		<button type="submit">{{locale.scrap.submit}}</button>
@@ -66,8 +61,7 @@ textarea
 {% block inline_body_js %}
 	window.addEventListener('load', function ()
 		{
-		selectIfPresent(fetchOption, "cache");
 		fillSelectList('fetchEncoding',encodingList);
-		selectIfPresent(fetchEncoding, "utf_8");
+		document.getElementById('fetchEncoding').value = "utf_8";
 		}, false);
 {% endblock %}

@@ -3,8 +3,12 @@
 {% endblock %}
 {% block content %}
 	<form method="POST">
-		<label for="deleteURL">{{locale.cache.url}}</label>
-		<input id="deleteURL" name="deleteURL" required="required"/>
+		<ul>
+			<li>
+				<label for="deleteURL">{{locale.cache.url}}</label>
+				<input id="deleteURL" name="deleteURL" required="required"/>
+			</li>
+		</ul>
 		<button type="submit">{{locale.cache.submit}}</button>
 	</form>
 	<div id="message">{{locale.cache[message]}}</div>

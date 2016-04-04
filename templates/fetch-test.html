@@ -1,21 +1,58 @@
 {% extends "base-layout.html" %}
 {% block inline_css %}
-label:not(:first-child)
+form>ul,
+form>ul>li
 	{
-	margin-left: 1em;
+	flex-direction: row;
+	flex-grow: 0;
+	}
+form>ul
+	{
+	flex-grow: 1;
+	}
+form>ul>li:first-child
+	{
+	flex-grow: 1;
+	}
+form>ul>li>label
+	{
+	margin: 0 1em;
+	}
+form>ul>li:first-child>label
+	{
+	margin-left: 0;
 	}
 {% endblock %}
 {% block content %}
 	<form method="POST">
-		<label for="fetchURL">{{locale.fetch.url}}</label>
-		<input id="fetchURL" name="fetchURL" required="required"/>
-		<label for="fetchOption">{{locale.fetch.option}}</label>
-		<select id="fetchOption" name="fetchOption">
-			<option value="no_cache">{{locale.fetch.no_cache}}</option>
-			<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
-			<option value="update_cache">{{locale.fetch.update_cache}}</option>
-		</select>
+		<ul>
+			<li>
+				<label for="fetchURL">{{locale.fetch.url}}</label>
+				<input id="fetchURL" name="fetchURL" {%if url%}value="{{url}}" {% endif %}required="required"/>
+			</li>
+			<li>
+				<label for="fetchOption">{{locale.fetch.option}}</label>
+				<select id="fetchOption" name="fetchOption" required="required">
+					<option value="no_cache">{{locale.fetch.no_cache}}</option>
+					<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
+					<option value="update_cache">{{locale.fetch.update_cache}}</option>
+				</select>
+			</li>
+			<li>
+				<label for="fetchEncoding">{{locale.fetch.encoding}}</label>
+				<select id="fetchEncoding" name="fetchEncoding" required="required">
+				</select>
+			</li>
+		</ul>
 		<button type="submit">{{locale.fetch.submit}}</button>
 	</form>
 	<div id="">{{response}}</div>
+{% endblock %}
+{% block inline_body_js %}
+	window.addEventListener('load', function ()
+		{
+		selectIfPresent(fetchOption, "cache");
+		fillSelectList('fetchEncoding',encodingList);
+		selectIfPresent(fetchEncoding, "utf_8");
+		}, false);
 {% endblock %}

@@ -6,6 +6,7 @@ cache:
 
 fetch:
   cache: Enabled
+  encoding: Encoding
   no_cache: Disabled
   option: Cache
   submit: Fetch!
@@ -32,14 +33,25 @@ nav:
   save: Save
   signin: Signin
   signout: Signout
+  
+scrap:
+  selectors: Selectors
+  source: Source
+  submit: Scrap
+  tabular_selectors: Tabular Selectors
+  url_list: URL List
 
 users:
   access: Access Level
+  admin: Admin
+  could_not_create: User could not be created!
   email: Email Address
   id: ID
   login: Login
+  name: Username
+  new_users: New Users
+  not_found: User does not exist!
+  password: Password
   user: User
   users: Users
-  new_users: New Users
-  password: Password
   

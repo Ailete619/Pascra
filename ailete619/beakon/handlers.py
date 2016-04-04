@@ -112,6 +112,18 @@ class UserHandler(BaseHandler):
         if not auth.get_user_by_session():
             self.redirect("/users/access/denied")
 
+class AdminHandler(UserHandler):
+    def get(self,**kwargs):
+        super(AdminHandler, self).get(**kwargs)
+        user = self.user_info
+        if not user or user["access"]!="admin":
+            self.GAE_handler.redirect("/users/access/denied")
+    def post(self,**kwargs):
+        super(AdminHandler, self).post(**kwargs)
+        user = self.user_info
+        if not user or user["access"]!="admin":
+            self.GAE_handler.redirect("/users/access/denied")
+
 class DispatchHandler(BaseHandler):
     def get_command(self, **kwargs):
         logging.info(self.__class__.__name__+".get_command("+str(kwargs)+")")

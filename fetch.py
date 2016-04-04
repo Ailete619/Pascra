@@ -10,45 +10,165 @@ from google.appengine.ext import ndb
 import logging
 import urllib
 
+encoding_list = [
+                 "shift_jis",
+                 "shift_jis_2004",
+                 "shift_jisx0213",
+                 "ascii",
+                 "big5",
+                 "big5hkscs",
+                 "cp037",
+                 "cp424",
+                 "cp437",
+                 "cp500",
+                 "cp720",
+                 "cp737",
+                 "cp775",
+                 "cp850",
+                 "cp852",
+                 "cp855",
+                 "cp856",
+                 "cp857",
+                 "cp858",
+                 "cp860",
+                 "cp861",
+                 "cp862",
+                 "cp863",
+                 "cp864",
+                 "cp865",
+                 "cp866",
+                 "cp869",
+                 "cp874",
+                 "cp875",
+                 "cp932",
+                 "cp949",
+                 "cp950",
+                 "cp1006",
+                 "cp1026",
+                 "cp1140",
+                 "cp1250",
+                 "cp1251",
+                 "cp1252",
+                 "cp1253",
+                 "cp1254",
+                 "cp1255",
+                 "cp1256",
+                 "cp1257",
+                 "cp1258",
+                 "euc_jp",
+                 "euc_jis_2004",
+                 "euc_jisx0213",
+                 "euc_kr",
+                 "gb2312",
+                 "gbk",
+                 "gb18030",
+                 "hz",
+                 "iso2022_jp",
+                 "iso2022_jp_1",
+                 "iso2022_jp_2",
+                 "iso2022_jp_2004",
+                 "iso2022_jp_3",
+                 "iso2022_jp_ext",
+                 "iso2022_kr",
+                 "latin_1",
+                 "iso8859_2",
+                 "iso8859_3",
+                 "iso8859_4",
+                 "iso8859_5",
+                 "iso8859_6",
+                 "iso8859_7",
+                 "iso8859_8",
+                 "iso8859_9",
+                 "iso8859_10",
+                 "iso8859_13",
+                 "iso8859_14",
+                 "iso8859_15",
+                 "iso8859_16",
+                 "johab",
+                 "koi8_r",
+                 "koi8_u",
+                 "mac_cyrillic",
+                 "mac_greek",
+                 "mac_iceland",
+                 "mac_latin2",
+                 "mac_roman",
+                 "mac_turkish",
+                 "ptcp154",
+                 "shift_jis",
+                 "shift_jis_2004",
+                 "shift_jisx0213",
+                 "utf_32",
+                 "utf_32_be",
+                 "utf_32_le",
+                 "utf_16",
+                 "utf_16_be",
+                 "utf_16_le",
+                 "utf_7",
+                 "utf_8",
+                 "utf_8_sig"]
+
+
 class CachedPage(ndb.Model):
     headers = ndb.TextProperty()
     source = ndb.TextProperty()
 
 class Handler(ailete619.beakon.handlers.UserHandler):
-    def fetch(self):
+    @classmethod
+    def fetch(self, url, data=None, method=urlfetch.GET, headers=None):
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
-        headers = self.request.get("headers")
         if headers:
             http_headers.update(headers)
-        url = self.request.get("url")
-        data = self.request.get("data")
         url_encoded_data = None
         if data:
             url_encoded_data = urllib.urlencode(data)
             method = self.request.get("method")
-            if (method and method=="post") or data:
+            if (method and method=="POST") or data:
+                logging.info("url="+str(url))
+                logging.info("method="+str(method))
+                logging.info("headers="+str(headers))
+                logging.info("data="+str(url_encoded_data))
                 return urlfetch.fetch(url=url,payload=url_encoded_data,method=urlfetch.POST,headers=http_headers)
             else:
                 url+="?"+url_encoded_data
+        logging.info("url="+str(url))
+        logging.info("method="+str(method))
+        logging.info("headers="+str(headers))
         return urlfetch.fetch(url=url,method=urlfetch.GET,headers=http_headers)
-    def get(self,**kwargs):
+    def get(self):
+        logging.info(self.request.body)
         url = self.request.get("url")
         logging.info(url)
         option = self.request.get("option")
         logging.info(option)
+        encoding = self.request.get("encoding")
+        logging.info(encoding)
         if url:
             if option=="cache":
+                logging.info("cached?")
                 cached_page = CachedPage.get_by_id(url)
                 if cached_page:
                     logging.info("from cache")
                     self.response.out.write(cached_page.source)
                     return
-            response = self.fetch()
+            response = self.fetch(url=url,data=self.request.get("data"),method=self.request.get("method"),headers=self.request.get("headers"))
+            logging.info("status="+str(response.status_code))
+            logging.info("content="+str(response.content))
             if response.status_code==200:
                 logging.info("not from cache")
-                source = response.content.decode('utf_8').encode('utf_8')
+                try:
+                    source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
+                except UnicodeDecodeError:
+                    logging.info("utf-8 not")
+                    for encoding in encoding_list:
+                        try:
+                            source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
+                            logging.info(encoding)
+                            break
+                        except UnicodeDecodeError:
+                            pass
+                        
                 if option!="no_cache":
-                    logging.info("cached")
+                    logging.info("to cache")
                     cached_page = CachedPage(id=url,source=source)
                     cached_page.put()
                 self.response.out.write(source)
@@ -78,8 +198,13 @@ class TestHandler(ailete619.beakon.handlers.UserHandler):
     def post(self,**kwargs):
         fetch_url = self.request.get("fetchURL")
         fetch_option = self.request.get("fetchOption")
-        url_encoded_data = urllib.urlencode({"url":fetch_url,"option":fetch_option})
-        response = urlfetch.fetch(url=("https://"+self.request.host+"/fetch?"+url_encoded_data),method=urlfetch.GET).content
+        fetch_encoding = self.request.get("fetchOption")
+        url_encoded_data = urllib.urlencode({"url":fetch_url,"option":fetch_option,"encoding":fetch_encoding})
+        response = Handler.fetch(url=("https://"+self.request.host+"/fetch?"+url_encoded_data),method=urlfetch.GET)
+        self.context["url"] = fetch_url
+        self.context["js"] = {}
+        self.context["js"]["fetchOption"] = '"'+fetch_option+'"'
+        self.context["js"]["fetchEncoding"] = '"'+fetch_encoding+'"'
         self.context["response"] = response.decode('utf_8')
         self.render_response('fetch-test.html')
         

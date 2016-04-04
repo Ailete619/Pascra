@@ -124,8 +124,9 @@ nav  #username
 	background-color: #FFFFFF;
 	border-radius: 0.5em;
 	color: rgb(15,128,255);
-	margin: 0 1em;
-	padding: 0.5em;
+	display: inline-block;
+	margin: auto 1em;
+	padding: 0.25em 0.5em;
 	}
 article
 	{
@@ -150,7 +151,8 @@ button,
 	color: #FFFFFF;
 	display: block;
 	font-weight: bold;
-	padding: 0.5em;
+	margin: auto 0;
+	padding: 0.25em 0.5em;
 	}
 button:hover,
 .button:hover
@@ -166,21 +168,59 @@ button:active,
 form
 	{
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	min-height: 100%;
+	}
+form input,
+form label,
+form select,
+form textarea
+	{
+	border-color: rgb(15,128,255);
+	border-radius: 0.5em;
+	border-width: 1px;
+	color: rgb(15,128,255);
 	}
 form label
 	{
+	font-weight: bold;
 	margin-right:0.5em;
-	padding: 0.5em 0;
+	padding: 0 0;
 	text-align: right;
 	}
-form input
+form>ul,
+form>ul>li
+	{
+	display: flex;
+	margin: 0;
+	margin-bottom: 0.5em;
+	padding: 0;
+	}
+form>ul
+	{
+	flex-direction: column;
+	flex-grow: 1;
+	}
+form>ul>li:last-child
+	{
+	}
+form>ul>li>label
+	{
+	}
+form>ul>li>label:not(:first-child)
+	{
+	margin-left: 1em;
+	}
+form>ul>li>input
+	{
+	flex-grow: 1;
+	}
+form>ul>li>textarea
 	{
 	flex-grow: 1;
 	}
 form>button[type="submit"]
 	{
-	margin: 1em 45%;
+	margin: 0 auto;
 	}
 	

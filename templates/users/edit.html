@@ -1,16 +1,58 @@
 {% extends "/base-layout.html" %}
+{% block inline_css %}
+form>ul>li>label
+	{
+	text-align: right;
+	width: 7.2em;
+	}
+.error_message
+	{
+	background-color: rgb(255,196,196);
+	border-color: rgb(255,15,15);
+	border-radius: 0.5em;
+	border-style: solid;
+	border-width: 2px;
+	color: #000000;
+	flex-grow: 1;
+	margin-bottom: 1em;
+	padding: 1em;
+	}
+{% endblock %}
 {% block content %}
-	<form method="post" action="/system/users/edit">
+	{% if error_message %}<div class="error_message">{{error_message}}</div>{% endif %}
+	<form method="POST">
 		{% if profile %}<input id="userID" name="userID" type="hidden" value="{{ profile.key.urlsafe() }}">{% endif %}
-		<label for="userEmail">{{locale.users.email}}</label>
-		<input id="userEmail" name="userEmail" required="required"{% if profile %} value="{{ profile.email }}"{% endif %} />
-		<label for="userName">{{locale.users.name}}</label>
-		<input id="userName" name="userName" required="required"{% if profile %} value="{{ profile.name }}"{% endif %} />
-		<label for="userAccessLevel">{{locale.users.access}}</label>
-		<select id="userAccessLevel" name="userAccessLevel" required="required">
-			<option value="admin"{% if profile and profile.access == "admin" %} selected="selected"{% endif %}>{{locale.users.admin}}</option>
-			<option value="user"{% if not profile or profile.access == "user" %} selected="selected"{% endif %}>{{locale.users.user}}</option>
-		</select>
+		<ul>
+			<li>
+				<label for="userEmail">{{locale.users.email}}</label>
+				<input id="userEmail" name="userEmail"{% if profile %} value="{{ profile.email }}"{% endif %} />
+			</li>
+			<li>
+				<label for="userLogin">{{locale.users.login}}</label>
+				<input id="userLogin" name="userLogin"{% if profile %} value="{{ profile.login }}" required="required"{% endif %} />
+			</li>
+			<li>
+				<label for="userName">{{locale.users.name}}</label>
+				<input id="userName" name="userName" required="required"{% if profile %} value="{{ profile.name }}"{% endif %} />
+			</li>
+			<li>
+				<label for="userPassword">{{locale.users.password}}</label>
+				<input id="userPassword" name="userPassword"{% if not profile %} required="required"{% endif %} />
+			</li>
+			<li>
+				<label for="userAccessLevel">{{locale.users.access}}</label>
+				<select id="userAccessLevel" name="userAccessLevel" required="required">
+					<option value="admin"{% if profile and profile.access == "admin" %} selected="selected"{% endif %}>{{locale.users.admin}}</option>
+					<option value="user"{% if not profile or profile.access == "user" %} selected="selected"{% endif %}>{{locale.users.user}}</option>
+				</select>
+			</li>
+		</ul>
 		<button type="submit">{% if profile %}{{locale.nav.save}}{% else %}{{locale.nav.create}}{% endif %}</button>
 	</form>
+{% endblock %}
+{% block inline_body_js %}
+	window.addEventListener('load', function ()
+		{
+		selectIfPresent(userAccessLevel, "user");
+		}, false);
 {% endblock %}

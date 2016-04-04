@@ -98,8 +98,8 @@ class RequestTestingHandler(BaseHandler):
                                                         ]
                                                 }
         s = WebsiteScraper()
-        scraps = s.scrap(test_kukkiapple_order_list_scraping)
-        logging.info(scraps)
+        #scraps = s.scrap(test_kukkiapple_order_list_scraping)
+        #logging.info(scraps)
         self.render_response('/pascra_request.html', **kwargs)
 
     def post(self,**kwargs):
@@ -149,8 +149,8 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/fetch', fetch.Handler),
                                webapp2.Route('/fetch/test', fetch.TestHandler),
                                webapp2.Route('/scrap', ScrapingHandler),
-                               webapp2.Route('/scrap/source', scrap.SourceTestHandler),
-                               webapp2.Route('/scrap/test', RequestTestingHandler),
+                               webapp2.Route('/scrap/source', scrap.SourceHandler),
+                               webapp2.Route('/scrap/test', scrap.TestHandler),
                                webapp2.Route('/scrap/hlp', RequestTestingHandler),
                                webapp2.Route('/users/access/denied', ailete619.beakon.users.AccessDeniedHandler),
                                webapp2.Route('/users/delete', ailete619.beakon.users.DeleteHandler),
@@ -159,7 +159,6 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/users/edit', ailete619.beakon.users.EditHandler),
                                webapp2.Route('/users/signin', ailete619.beakon.users.SignInHandler),
                                webapp2.Route('/users/signout', ailete619.beakon.users.SignOutHandler),
-                               webapp2.Route('/users/test', ailete619.beakon.users.TestHandler),
                                webapp2.Route(r'/internal/item', scrap.ItemHandler),
                                webapp2.Route(r'/internal/list', scrap.ListHandler),
                                #webapp2.Route(r'/javascript/test', javascript_engine.TestHandler),
