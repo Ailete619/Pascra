@@ -95,10 +95,11 @@ class ListHandler(BaseHandler):
         logging.info("login headers="+str(response.headers))
         logging.info(response.content)
         if response.status_code == 200:
-            cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
-            if cookie:
-                self.websiteCookies.update(cookie)
-            return True
+            if "Set-Cookie" in response.headers:
+                cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
+                if cookie:
+                    self.websiteCookies.update(cookie)
+                return True
         return False
     def post(self,**kwargs):
         request_info = {}

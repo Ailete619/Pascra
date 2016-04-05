@@ -127,8 +127,9 @@ class EditHandler(AdminHandler):
               unique_properties,
               access=access, email=email, login=login, name=name, password_raw=password,
               verified=True)
+            logging.info("user_data="+str(user_data))
             if user_data[0]: #user_data is a tuple
-                profile = user_data[0]
+                profile = user_data[1]
             else:
                 self.context["error_message"] = self.context["locale"]["users"]["could_not_create"]
         self.context["profile"] = profile

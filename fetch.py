@@ -179,7 +179,7 @@ class Handler(ailete619.beakon.handlers.UserHandler):
             self.error(404)
             self.response.out.write('Page Not Found!')
 
-class CacheDeleteHandler(ailete619.beakon.handlers.UserHandler):
+class CacheDeleteHandler(ailete619.beakon.handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('cache-delete.html')
     def post(self,**kwargs):
@@ -192,7 +192,7 @@ class CacheDeleteHandler(ailete619.beakon.handlers.UserHandler):
             self.context["message"] = "not_found"
         self.render_response('cache-delete.html')
         
-class TestHandler(ailete619.beakon.handlers.UserHandler):
+class TestHandler(ailete619.beakon.handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('fetch-test.html')
     def post(self,**kwargs):

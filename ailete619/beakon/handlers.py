@@ -78,12 +78,15 @@ class BaseHandler(webapp2.RequestHandler):
                         self.context["locale"] = locale[language_key]
                         return
         self.context["locale"] = locale[default_locale]
+    def validateUser(self):
+        pass
     # this is needed for webapp2 sessions to work
     def dispatch(self):
         self.context = {}
         self.set_locale(self.request.headers.get('accept_language'))
         # Get a session store for this request.
         self.session_store = sessions.get_store(request=self.request)
+        self.validateUser()
         try:
             # Dispatch the request.
             webapp2.RequestHandler.dispatch(self)
@@ -103,26 +106,43 @@ class BaseHandler(webapp2.RequestHandler):
         self.auth.unset_session()
 
 class UserHandler(BaseHandler):
+    def validateUser(self):
+        auth = self.auth
+        if not auth.get_user_by_session():
+            self.redirect("/users/access/denied")
     def get(self,**kwargs):
+        logging.info(self.__class__.__name__+".get()")
         auth = self.auth
         if not auth.get_user_by_session():
             self.redirect("/users/access/denied")
+        logging.info("auth.get_user_by_session()="+str(auth.get_user_by_session()))
     def post(self,**kwargs):
+        logging.info(self.__class__.__name__+".post()")
         auth = self.auth
         if not auth.get_user_by_session():
             self.redirect("/users/access/denied")
+        logging.info("auth.get_user_by_session()="+str(auth.get_user_by_session()))
 
 class AdminHandler(UserHandler):
+    def validateUser(self):
+        user = self.user_info
+        logging.info("user="+str(user))
+        if not user or user["access"]!="admin":
+            self.redirect("/users/access/denied")
     def get(self,**kwargs):
+        logging.info(self.__class__.__name__+".get()")
         super(AdminHandler, self).get(**kwargs)
         user = self.user_info
+        logging.info("user="+str(user))
         if not user or user["access"]!="admin":
-            self.GAE_handler.redirect("/users/access/denied")
+            self.redirect("/users/access/denied")
     def post(self,**kwargs):
+        logging.info(self.__class__.__name__+".post()")
         super(AdminHandler, self).post(**kwargs)
         user = self.user_info
+        logging.info("user="+str(user))
         if not user or user["access"]!="admin":
-            self.GAE_handler.redirect("/users/access/denied")
+            self.redirect("/users/access/denied")
 
 class DispatchHandler(BaseHandler):
     def get_command(self, **kwargs):
