@@ -110,7 +110,7 @@ class EditHandler(AdminHandler):
                 profile.login=login
                 profile.name=name
                 if password:
-                    profile.password=password
+                    profile.set_password(password)
                 profile.put()
             else:
                 self.context["error_message"] = self.context["locale"]["users"]["not_found"]

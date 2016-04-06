@@ -151,7 +151,7 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/scrap', ScrapingHandler),
                                webapp2.Route('/scrap/source', scrap.SourceHandler),
                                webapp2.Route('/scrap/test', scrap.TestHandler),
-                               webapp2.Route('/scrap/hlp', RequestTestingHandler),
+                               webapp2.Route('/scrap/help', scrap.HelpHandler),
                                webapp2.Route('/users/access/denied', ailete619.beakon.users.AccessDeniedHandler),
                                webapp2.Route('/users/delete', ailete619.beakon.users.DeleteHandler),
                                webapp2.Route('/users/google/signin', ailete619.beakon.users.GoogleSignInHandler),

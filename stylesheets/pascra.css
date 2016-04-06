@@ -2,7 +2,8 @@
 
 html
 	{
-  	display: flex; flex-direction: column; /* correction bug IE de min-height non appliqué à body */
+  	display: flex;
+  	flex-direction: column; /* correction bug IE de min-height non appliqué à body */
 	}
 body
 	{

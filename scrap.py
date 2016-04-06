@@ -358,6 +358,10 @@ class WebsiteScraper(object):
         self.send_response()
         self.scrap_list = self.scrap_list[1:]
 
+class HelpHandler(ailete619.beakon.handlers.UserHandler):
+    def get(self,**kwargs):
+        self.render_response('scrap-help.html')
+
 class SourceHandler(ailete619.beakon.handlers.UserHandler):
     def get(self,**kwargs):
         self.render_response('scrap-source.html')
@@ -395,7 +399,7 @@ class SourceHandler(ailete619.beakon.handlers.UserHandler):
         self.context["tabular_selectors"] = tabular_selectors
         self.render_response('scrap-source.html')
 
-class TestHandler(ailete619.beakon.handlers.UserHandler):
+class TestHandler(ailete619.beakon.handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('scrap-test.html')
     def post(self,**kwargs):

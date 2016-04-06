@@ -1,8 +1,12 @@
 {% extends "base-layout.html" %}
 {% block content %}
-		<h2>PAge SCRAper</h2>
-		<p>A simple Python page scraper for Google App Engine that I . </p>
-		<p> Send a POST request to /scrap/page</p>
+	<h2>PAge SCRAper</h2>
+	<p>{{locale.homepage.description}}</p>
+	<p>{{locale.homepage.story_start}}</p>
+	<p>{{locale.homepage.story_now}}</p>
+	<p>{{locale.homepage.help_start}} <a href="/scrap/help">{{locale.homepage.help_page}}</a> {{locale.homepage.help_end}}</p>
+	<p>{{locale.homepage.access}}</p>
+	<p>{{locale.homepage.source_start}} <a href="https://github.com/Ailete619/Pascra">{{locale.homepage.source_page}}</a> {{locale.homepage.source_end}}</p>
 {% endblock %}
 
 

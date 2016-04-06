@@ -1,0 +1,64 @@
+{% extends "base-layout.html" %}
+{% block inline_css %}
+form>ul
+	{
+	flex-direction: column;
+	}
+form>ul>li>ul
+	{
+	display: flex;
+	flex-direction: row;
+	}
+form>ul>li>ul>li
+	{
+	display: flex;
+	flex-direction: row;
+	}
+form>ul>li>ul>li>div:first-child
+	{
+	display: flex;
+	}
+form>ul>li>ul>li:last-child
+	{
+	display: flex;
+	}
+{% endblock %}
+{% block content %}
+	<h2>{{locale.help.title}}</h2>
+	<ul>
+		<li>
+			You can use PASCRA to scrap web pages in two ways:
+				- directly from the source code of the page you want to scrap.
+				- from a list of urls of the pages you want to scrap
+			Either using this interface or the API from your app.
+		</li>
+		<li>
+			Cache options
+			<ul>
+				<li><div>Disabled</div><div>An HTTP request is sent to retrieve the page to scrap, the page is not cached.</div></li>
+				<li><div>Enabled</div><div>The page is retrieved from the cache if it has already been cached. If the page is not present in the cache, an HTTP request is sent to retrieve the page which is then cached.</div></li>
+				<li><div>Force Update</div><div>An HTTP request is sent to retrieve the page to scrap, even if it is already present in the cache. The page is then cached.</div></li>
+			</ul>
+		</li>
+		<li>
+			Encoding options
+			
+		</li>
+		<li>
+			selectors
+		</li>
+		<li>
+			tabular selectors
+		</li>
+		<li>
+		extractors
+		</li>
+	</ul>
+{% endblock %}
+{% block inline_body_js %}
+	window.addEventListener('load', function ()
+		{
+		fillSelectList('fetchEncoding',encodingList);
+		document.getElementById('fetchEncoding').value = "utf_8";
+		}, false);
+{% endblock %}

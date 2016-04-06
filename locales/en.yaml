@@ -13,6 +13,21 @@ fetch:
   update_cache: Force Update
   url: URL
 
+help:
+  title: Help
+
+homepage:
+  access: If you want to use this instance of PASCRA, contact the administrator of this Google App Engine account.
+  description: A simple page scraping tool written in Python for Google App Engine.
+  help_end: to learn how to scrap pages manually or from your own App.
+  help_page: Help Page
+  help_start: Check out the
+  story_start: This project started in 2015 as part of another project I was working on at the time. It was re-spawned as an independent GAE application in 2016, as I needed to use it for other projects.
+  story_now: It is also slowly outgrowing its simple status, as I now need to outfit it with Javascript capabilities to be able to scrap pages that use Javascript either to load content or to implement access control to protect their content.
+  source_end: .
+  source_page: GitHub
+  source_start: You can find and download the source code on
+
 menu:
   cache_delete: Delete Cache
   fetch: Fetch
