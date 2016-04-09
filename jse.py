@@ -151,7 +151,7 @@ def parse_multiline_comment(string,index):
 
 def parse_operator(string,index):
     fsm = {}
-    for operator in ["=","==","===","!=","!==","+","++","+=","-","--","-="]:
+    for operator in ["+","-","*","/","%","++","--","=","+=","-=","*=","/=","%=","==","===","!=","!==","<","<=",">",">=","&&","||","&","|","^","~","<<",">>",">>>"]:
         node = fsm
         for character in operator:
             if character not in node:
@@ -161,31 +161,43 @@ def parse_operator(string,index):
     start = index
     logging.info("operator fsm="+str(fsm))
     node = fsm
-    while index<len(string):
+    character = string[index]
+    logging.info("    character='"+str(character)+"'")
+    while index<len(string) and character in node:
+        node = node[character]
+        index += 1
         character = string[index]
         logging.info("    character='"+str(character)+"'")
-        while character in node:
-            node = node[character]
-            index += 1
-            character = string[index]
-        if "terminal" in node:
-            return {"index":index,"start":start,"string":string[start:index],"type":"operator"}
-        else:
-            return {"index":index,"start":start,"type":"error"}
+    if "terminal" in node:
+        return {"index":index,"start":start,"string":string[start:index],"type":"operator"}
+    else:
+        return {"index":index,"start":start,"type":"error"}
 
 def parse_separator(string,index):
-    pass
+    start = index
+    index += 1
+    return {"index":index,"start":start,"string":string[start:index],"type":"separator"}
 
 def scan(string,index):
     length = len(string)
     fsm = {}
-    for char_range in [{"list":"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ","handler":parse_identifier},{"list":"\'\"","handler":parse_string},{"list":"0123456789","handler":parse_number},{"list":" \n\r\t","handler":eat_whitespace},{"list":"!%&=-^|@+*<>?/\\","handler":parse_operator},{"list":",.:;()[]{}","handler":parse_separator}]:
+    for char_range in [
+                       {"list":"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ","handler":parse_identifier},
+                       {"list":"\'\"","handler":parse_string},
+                       {"list":"0123456789","handler":parse_number},
+                       {"list":" \n\r\t","handler":eat_whitespace},
+                       {"list":"!%&=-^|@+*<>?/\\","handler":parse_operator},
+                       {"list":",.:;()[]{}","handler":parse_separator}
+                       ]:
         node = fsm
         for character in char_range["list"]:
             if character not in node:
                 node[character] = {}
                 node[character]["terminal"] = {"handler":char_range["handler"]}
-    for combination in [{"string":"//","handler":parse_single_line_comment},{"string":"/*","handler":parse_multiline_comment},]:
+    for combination in [
+                        {"string":"//","handler":parse_single_line_comment},
+                        {"string":"/*","handler":parse_multiline_comment},
+                        ]:
         node = fsm
         for character in combination["string"]:
             if character not in node:
@@ -338,6 +350,6 @@ function spClickHandler(){
         #logging.info(T.fsm)            
                 
         #self.response.write(T.fsm)
-        self.context["response"] = scan("_test01 // test3\ntest2\r /* \n test4 * / */   test5='test6 '",0)
+        self.context["response"] = scan("_test01 // test3\ntest2\r /* \n test4 * / */   test5='test6 ';",0)
         self.render_response('/javascript-test.html')
         
