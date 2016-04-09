@@ -150,16 +150,49 @@ def parse_multiline_comment(string,index):
     return {"index":(index+1)}
 
 def parse_operator(string,index):
-    fsm = {}
-    for operator in ["+","-","*","/","%","++","--","=","+=","-=","*=","/=","%=","==","===","!=","!==","<","<=",">",">=","&&","||","&","|","^","~","<<",">>",">>>"]:
+    """fsm = {}
+    for operator in ["+","-","*","/","%","++","--","=","+=","-=","*=","/=","%=","==","===","!=","!==","<","<=",">",">=","&&","||","!","&","|","^","~","<<",">>",">>>"]:
         node = fsm
         for character in operator:
             if character not in node:
                 node[character] = {}
             node = node[character]
         node["terminal"] = {"handler":parse_operator}
-    start = index
     logging.info("operator fsm="+str(fsm))
+    """
+    fsm = {
+           '!':{'terminal':{'handler':parse_operator}},
+                '=':{'terminal':{'handler':parse_operator},
+                     '=':{'terminal':{'handler':parse_operator}}}},
+           '%':{'terminal':{'handler':parse_operator},
+                '=':{'terminal':{'handler':parse_operator}}},
+           '&':{'terminal':{'handler':parse_operator},
+                '&':{'terminal':{'handler':parse_operator}}},
+           '+':{'terminal':{'handler':parse_operator},
+                '+':{'terminal':{'handler':parse_operator}},
+                '=':{'terminal':{'handler':parse_operator}}},
+           '*':{'terminal':{'handler':parse_operator},
+              '=':{'terminal':{'handler':parse_operator}}},
+           '-':{'terminal':{'handler':parse_operator},
+                '=':{'terminal':{'handler':parse_operator}},
+                '-':{'terminal':{'handler':parse_operator}}},
+           '/':{'terminal':{'handler':parse_operator},
+                '=':{'terminal':{'handler':parse_operator}}},
+           '|':{'terminal':{'handler':parse_operator},
+                '|':{'terminal':{'handler':parse_operator}}},
+           '~':{'terminal':{'handler':parse_operator}},
+           '^':{'terminal':{'handler':parse_operator}},
+           '=':{'terminal':{'handler':parse_operator},
+                '=':{'terminal':{'handler':parse_operator},
+                     '=':{'terminal':{'handler':parse_operator}}}},
+           '<':{'terminal':{'handler':parse_operator},
+                '=':{'terminal':{'handler':parse_operator}},
+                '<':{'terminal':{'handler':parse_operator}}},
+            '>':{'terminal':{'handler':parse_operator},
+                 '=':{'terminal':{'handler':parse_operator}},
+                 '>':{'terminal':{'handler':parse_operator},
+                      '>':{'terminal':{'handler':parse_operator}}}}}
+    start = index
     node = fsm
     character = string[index]
     logging.info("    character='"+str(character)+"'")
@@ -226,6 +259,11 @@ def scan(string,index):
                     tokens.append(token)
     return tokens
         #operator, separator
+def parse(string):
+    tokens = scan(string,0)
+    index = 0
+    while index<len(tokens):
+        pass
 
 def eat_whitespace(string,index):
     while index<len(string) and is_whitespace(string[index]):
