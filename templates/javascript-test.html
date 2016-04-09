@@ -1,0 +1,53 @@
+{% extends "base-layout.html" %}
+{% block inline_css %}
+form>ul
+	{
+	flex-direction: row;
+	flex-wrap: wrap;
+	}
+form>ul>li:first-child,
+form>ul>li:last-child
+	{
+	width: 100%;
+	}
+form>ul>li>label
+	{
+	text-align: right;
+	width: 8.2em;
+	}
+textarea
+	{
+	min-height: 20em;
+	}
+{% endblock %}
+{% block content %}
+	<form method="POST">
+		<ul>
+			<li>
+				<label for="jsURL">{{locale.js.url}}</label>
+				<input id="jsURL" name="jsURL" />
+			</li>
+			<li>
+				<label for="fetchOption">{{locale.fetch.option}}</label>
+				<select id="fetchOption" name="fetchOption">
+					<option value="no_cache">{{locale.fetch.no_cache}}</option>
+					<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
+					<option value="update_cache">{{locale.fetch.update_cache}}</option>
+				</select>
+			</li>
+			<li>
+				<label for="jsSource">{{locale.js.source}}</label>
+				<textarea id="jsSource" name="jsSource"></textarea>
+			</li>
+		</ul>
+		<button type="submit">{{locale.js.submit}}</button>
+	</form>
+	<div id="">{{response}}</div>
+{% endblock %}
+{% block inline_body_js %}
+	window.addEventListener('load', function ()
+		{
+		fillSelectList('fetchEncoding',encodingList);
+		document.getElementById('fetchEncoding').value = "utf_8";
+		}, false);
+{% endblock %}

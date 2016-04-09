@@ -28,6 +28,11 @@ homepage:
   source_page: GitHub
   source_start: You can find and download the source code on
 
+js:
+  source: Source Code
+  submit: Interpret!
+  url: Javascript File
+
 menu:
   cache_delete: Delete Cache
   fetch: Fetch

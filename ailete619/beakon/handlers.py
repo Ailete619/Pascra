@@ -3,14 +3,20 @@
 
 @author: Loic LE TEXIER
 '''
-from config import locale
-from config import settings
+from config import locale, settings
+from google.appengine.ext.ndb import Model
+from google.appengine.ext.ndb.model import StringProperty
 import importlib
 import logging
 import webapp2
 from webapp2_extras import auth, jinja2, sessions
 from webapp2_extras.auth import InvalidAuthIdError, InvalidPasswordError
 
+class Cookie(Model):
+    name = StringProperty()
+    path = StringProperty()
+    name = StringProperty()
+#http://stackoverflow.com/questions/12884618/how-to-get-all-cookies-with-urlfetch
 class BaseHandler(webapp2.RequestHandler):
     @webapp2.cached_property
     def auth(self):

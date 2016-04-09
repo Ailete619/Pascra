@@ -12,63 +12,7 @@ import urllib
 import urllib2
 import urlparse
 import webapp2
-
-class CachedPage(ndb.Model):
-    source = ndb.TextProperty()
-    headers = ndb.TextProperty()
-
-class NoCacheHandler(webapp2.RequestHandler):
-    def fetch(self):
-        http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
-        headers = self.request.get("headers")
-        if headers:
-            http_headers.update(headers)
-        data = self.request.get("data")
-        url_encoded_data = None
-        if data:
-            url_encoded_data = urllib.urlencode(data)
-        method = self.request.get("method")
-        url = self.request.get("url")
-        if (method and method=="post") or data:
-            method = urlfetch.POST
-        else:
-            method = urlfetch.GET
-            url+="?"+url_encoded_data
-            url_encoded_data = None
-        return urlfetch.fetch(url=url,payload=url_encoded_data,method=method,headers=http_headers)
-    def get(self):
-        response = self.fetch()
-        if response.status_code==200:
-            self.response.out.write(response.content)
-        else:
-            self.error(response.status_code)
-            self.response.out.write(response.content)
-
-class CacheHandler(NoCacheHandler):
-    def get(self,**kwargs):
-        logging.info("kwargs="+str(kwargs))
-        logging.info("body="+self.request.body)
-        logging.info("url="+self.request.get("url"))
-        url = self.request.get("url")
-        if url:
-            cached_page = CachedPage.get_by_id(url)
-            if cached_page:
-                logging.info("cached")
-                logging.info(cached_page.source)
-                self.response.out.write(cached_page.source)
-            else:
-                logging.info("not cached")
-                response = self.fetch()
-                if response.status_code==200:
-                    cached_page = CachedPage(id=url,source=response.content)
-                    cached_page.put()
-                    self.response.out.write(response.content)
-                else:
-                    self.error(response.status_code)
-                    self.response.out.write(response.content)
-        else:
-            self.error(404)
-            self.response.out.write('Page Not Found!')
+from ailete619.beakon.handlers import AdminHandler
 
 class FSMBuilder(object):
     index = 0
@@ -169,18 +113,142 @@ class FSMBuilder(object):
             self.index += 1
             #last_character = character
 
+def parse_number(string,index):
+    pass
+
+def parse_string(string,index):
+    quote = string[index]
+    start = index
+    index = index+1
+    while index<len(string) and string[index]!=quote:
+        index += 1
+    return {"index":(index+1),"position":start,"string":string[start:(index+1)],"type":"string","value":string[(start+1):index]}
+
+def is_end_of_line(string,index):
+    if string[index]=="\n":
+        return 1
+    elif string[index]=="\r":
+        if string[index+1]=="\n":
+            return 2
+        return 1
+    return 0
+
+def parse_single_line_comment(string,index):
+    offset = is_end_of_line(string,index)
+    while index<len(string) and offset==0:
+        index += 1
+        offset = is_end_of_line(string,index)
+    return {"index":index+offset}
+    
+def parse_multiline_comment(string,index):
+    while index<len(string):
+        index +=1
+        if string[index]=="*":
+            index +=1
+            if string[index]=="/":
+                break
+    return {"index":(index+1)}
+
+def parse_operator(string,index):
+    fsm = {}
+    for operator in ["=","==","===","!=","!==","+","++","+=","-","--","-="]:
+        node = fsm
+        for character in operator:
+            if character not in node:
+                node[character] = {}
+            node = node[character]
+        node["terminal"] = {"handler":parse_operator}
+    start = index
+    logging.info("operator fsm="+str(fsm))
+    node = fsm
+    while index<len(string):
+        character = string[index]
+        logging.info("    character='"+str(character)+"'")
+        while character in node:
+            node = node[character]
+            index += 1
+            character = string[index]
+        if "terminal" in node:
+            return {"index":index,"start":start,"string":string[start:index],"type":"operator"}
+        else:
+            return {"index":index,"start":start,"type":"error"}
+
+def parse_separator(string,index):
+    pass
+
+def scan(string,index):
+    length = len(string)
+    fsm = {}
+    for char_range in [{"list":"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ","handler":parse_identifier},{"list":"\'\"","handler":parse_string},{"list":"0123456789","handler":parse_number},{"list":" \n\r\t","handler":eat_whitespace},{"list":"!%&=-^|@+*<>?/\\","handler":parse_operator},{"list":",.:;()[]{}","handler":parse_separator}]:
+        node = fsm
+        for character in char_range["list"]:
+            if character not in node:
+                node[character] = {}
+                node[character]["terminal"] = {"handler":char_range["handler"]}
+    for combination in [{"string":"//","handler":parse_single_line_comment},{"string":"/*","handler":parse_multiline_comment},]:
+        node = fsm
+        for character in combination["string"]:
+            if character not in node:
+                node[character] = {}
+            node = node[character]
+        node["terminal"] = {"handler":combination["handler"]}
+    tokens = []
+    while index<length:
+        character = string[index]
+        if character in fsm:
+            node = fsm[character]
+            if index+1<length:
+                lookahead = string[index+1]
+                if lookahead in node:
+                    index += 1
+                    node = node[lookahead]
+            if "terminal" in node:
+                terminal = node["terminal"]
+                if "handler" in terminal:
+                    result = terminal["handler"](string,index)
+                    index = result["index"]
+                if "type" in result:
+                    token = {"type":result["type"],"string":result["string"]}
+                    if "value" in result:
+                        token["value"] = result["value"]
+                    tokens.append(token)
+    return tokens
+        #operator, separator
+
+def eat_whitespace(string,index):
+    while index<len(string) and is_whitespace(string[index]):
+        index += 1
+    return {"index":index}
+
+def parse_identifier(string,index):
+    start = index
+    index += 1
+    while index<len(string) and is_identifier_char(string[index]):
+        index += 1
+    return {"index":index,"position":start,"string":string[start:index],"type":"identifier","value":string[start:index]}
+
+def is_digit(character):
+    if character in u"0123456789":
+        return True
+    return False
+
+def is_identifier_char(character):
+    if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+        return True
+    return False
+
 def is_identifier_start(character):
     if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
         return True
     return False
 
 def is_whitespace(character):
-    if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
+    if character in u" \n\r\t":
         return True
     return False
     
 
-class TestHandler(webapp2.RequestHandler):
+class TestHandler(AdminHandler):
     def scan(self):
         test_string = "function"
         
@@ -265,9 +333,11 @@ function pcClickHandler(){
 function spClickHandler(){
     hrefChange(1);
 }"""
-        T = FSMBuilder()
-        T.parse()
-        logging.info(T.fsm)            
+        #T = FSMBuilder()
+        #T.parse()
+        #logging.info(T.fsm)            
                 
-        self.response.write(T.fsm)
+        #self.response.write(T.fsm)
+        self.context["response"] = scan("_test01 // test3\ntest2\r /* \n test4 * / */   test5='test6 '",0)
+        self.render_response('/javascript-test.html')
         

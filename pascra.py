@@ -3,7 +3,7 @@ import ailete619.beakon.handlers
 import ailete619.beakon.users
 import fetch
 from google.appengine.api import taskqueue, urlfetch
-#import javascript_engine
+import jse
 import json
 import logging
 from scrap import WebsiteScraper, ItemHandler
@@ -148,6 +148,7 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/cache/delete', fetch.CacheDeleteHandler),
                                webapp2.Route('/fetch', fetch.Handler),
                                webapp2.Route('/fetch/test', fetch.TestHandler),
+                               webapp2.Route('/javascript_engine/test', jse.TestHandler),
                                webapp2.Route('/scrap', ScrapingHandler),
                                webapp2.Route('/scrap/source', scrap.SourceHandler),
                                webapp2.Route('/scrap/test', scrap.TestHandler),
@@ -161,7 +162,6 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/users/signout', ailete619.beakon.users.SignOutHandler),
                                webapp2.Route(r'/internal/item', scrap.ItemHandler),
                                webapp2.Route(r'/internal/list', scrap.ListHandler),
-                               #webapp2.Route(r'/javascript/test', javascript_engine.TestHandler),
                                ('/?', HomeHandler)
                               ],
                               config=config,
