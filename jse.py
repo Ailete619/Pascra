@@ -14,213 +14,168 @@ import urlparse
 import webapp2
 from ailete619.beakon.handlers import AdminHandler
 
-class FSMBuilder(object):
-    index = 0
-    input = ""
-    current_nodes = []
-    first_node_list = deque(maxlen=2)
-    last_node_list = deque(maxlen=2)
-    stack = deque()
-    fsm = {}
-    def add(self, character, new_node):
-        for node in self.last_node_list[-1]:
-            if character in node:
-                raise Exception
-            else:
-                node[character] = new_node
-        self.last_node_list.append([new_node])
-    def append(self, character, new_node):
-        for node in self.stack[-1]:
-            if character in node:
-                raise Exception
-            else:
-                node[character] = new_node
-        self.stack.pop()
-        self.stack.append([new_node])
-    def handle_backslash(self):
-        escaped_characters = {"\'":"\'","\"":"\"","\\":"\\","n":"\n","r":"\r","t":"\t","b":"\b"}
-        self.index+=1
-        character = self.input[self.index]
-        if character in escaped_characters:
-            new_node = {}
-            self.append(escaped_characters[character], new_node)
-    def handle_closing_parenthesis(self):
-        last = self.stack.pop()
-        self.stack[-1].append(last[0])
-        self.stack.rotate(1)
-        self.previous_node = self.stack.pop()
-        self.stack.rotate(-1)
-    def handle_opening_parenthesis(self):
-        self.stack.append([])
-        self.stack.append(self.stack[-2])
-    def handle_pipe(self):
-        last = self.stack.pop()
-        self.stack[-1].extend(last)
-        self.stack.extend([self.stack[-2]])
-    def handle_plus(self): # ***
-        last = self.stack[-2]
-        for node in self.stack[-1]:
-            for key, value in last.itertools():
-                node[key] = value
-    def handle_question_mark(self):
-        logging.info("stack="+str(self.stack))
-        last = self.stack.pop()
-        self.stack[-1].extend(last)
-        logging.info("stack="+str(self.stack))
-    def handle_star(self, current_node, input):
-        current_node[input] = current_node
-        return current_node
-        new_node = {}
-        current_node[input] = new_node
-        new_node[input] = new_node
-        return new_node
-    def set_current_nodes(self, new_nodes):
-        self.current_nodes = new_nodes
-    def parse(self):
-        self.input = "a(bb|cc)?d"
-        self.stack.append([self.fsm])
-        self.stack.append([self.fsm])
-        logging.info("fsm="+str(self.fsm))
-        logging.info("stack="+str(self.stack))
-        #last_index = len(self.input)-1
-        while self.index<len(self.input):
-            character = self.input[self.index]
-            logging.info("char="+character)
-            if character=="\\":
-                self.handle_backslash()
-            elif character=="|":
-                self.handle_pipe()
-            elif character=="+":
-                self.handle_plus()
-            elif character=="?":
-                self.handle_question_mark()
-            elif character=="*":
-                self.handle_star()
-            elif character=="(":
-                self.handle_opening_parenthesis()
-            elif character==")":
-                self.handle_closing_parenthesis()
-            else:
-                new_node = {}
-                self.previous_character = character
-                self.append(character, new_node)
-                #self.set_current_nodes([new_node])
-            #if self.index==last_index:
-            #    node["type"] = regex_type
-            self.previous_node = self.stack[-1][0]
-            logging.info("fsm="+str(self.fsm))
-            logging.info("stack="+str(self.stack))
-            self.index += 1
-            #last_character = character
+class AST(object):
+    def evaluate(self):
+        pass
 
-def parse_number(string,index):
-    pass
+class Parser(object):
+    def process(self,tokens,pos):
+        pass
 
-def parse_string(string,index):
-    quote = string[index]
-    start = index
-    index = index+1
-    while index<len(string) and string[index]!=quote:
-        index += 1
-    return {"index":(index+1),"position":start,"string":string[start:(index+1)],"type":"string","value":string[(start+1):index]}
+class Option(Parser):
+    def __init__(self,parser):
+        self.parser = parser
+    def process(self,tokens,pos):
+        result = self.parser.__process__(tokens,pos)
+        if result:
+            return result
+        else:
+            return None
 
-def is_end_of_line(string,index):
-    if string[index]=="\n":
-        return 1
-    elif string[index]=="\r":
-        if string[index+1]=="\n":
-            return 2
-        return 1
-    return 0
+class Scope(dict):
+    def __init__(self, outer=None):
+        self.outer
+    def find(self,var):
+        return self if (var in self) else self.outer.find(var)
 
-def parse_single_line_comment(string,index):
-    offset = is_end_of_line(string,index)
-    while index<len(string) and offset==0:
-        index += 1
-        offset = is_end_of_line(string,index)
-    return {"index":index+offset}
-    
-def parse_multiline_comment(string,index):
-    while index<len(string):
-        index +=1
-        if string[index]=="*":
-            index +=1
-            if string[index]=="/":
-                break
-    return {"index":(index+1)}
-
-def parse_operator(string,index):
-    """fsm = {}
-    for operator in ["+","-","*","/","%","++","--","=","+=","-=","*=","/=","%=","==","===","!=","!==","<","<=",">",">=","&&","||","!","&","|","^","~","<<",">>",">>>"]:
+def scan(string,position):
+    def is_digit(character):
+        if character in u"0123456789":
+            return True
+        return False
+    def is_end_of_line(string,position):
+        if string[position]=="\n":
+            return 1
+        elif string[position]=="\r":
+            if string[position+1]=="\n":
+                return 2
+            return 1
+        return 0
+    def is_identifier_char(character):
+        if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+            return True
+        return False
+    def is_whitespace(character):
+        if character in u" \f\t\n\r":
+            return True
+        return False
+    def scan_identifier(position):
+        start = position
+        position += 1
+        while position<len(string) and is_identifier_char(string[position]):
+            position += 1
+        return {"position":position,"start":start,"string":string[start:position],"type":"identifier","value":string[start:position]}
+    def scan_multiline_comment(position):
+        while position<len(string):
+            position +=1
+            if string[position]=="*":
+                position +=1
+                if string[position]=="/":
+                    break
+        position += 1
+        return {"position":position}
+    def scan_number(position):
+        start = position
+        position += 1
+        while position<len(string) and is_digit(string[position]):
+            position += 1
+        if string[position]==".":
+            position += 1
+            while position<len(string) and is_digit(string[position]):
+                position += 1
+        return {"position":position,"start":start,"string":string[start:position],"type":"number","value":float(string[start:position])}
+    def scan_operator(position):
+        """fsm = {}
+        for operator in ["+","-","*","/","%","++","--","=","+=","-=","*=","/=","%=","==","===","!=","!==","<","<=",">",">=","&&","||","!","&","|","^","~","<<",">>",">>>"]:
+            node = fsm
+            for character in operator:
+                if character not in node:
+                    node[character] = {}
+                node = node[character]
+            node["terminal"] = True
+        logging.info("operator fsm="+str(fsm))
+        """
+        fsm = {
+               '!':{'terminal':True},
+                    '=':{'terminal':True,
+                         '=':{'terminal':True}},
+               '%':{'terminal':True,
+                    '=':{'terminal':True}},
+               '&':{'terminal':True,
+                    '&':{'terminal':True}},
+               '+':{'terminal':True,
+                    '+':{'terminal':True},
+                    '=':{'terminal':True}},
+               '*':{'terminal':True,
+                  '=':{'terminal':True}},
+               '-':{'terminal':True,
+                    '=':{'terminal':True},
+                    '-':{'terminal':True}},
+               '/':{'terminal':True,
+                    '=':{'terminal':True}},
+               '|':{'terminal':True,
+                    '|':{'terminal':True}},
+               '~':{'terminal':True},
+               '^':{'terminal':True},
+               '=':{'terminal':True,
+                    '=':{'terminal':True,
+                         '=':{'terminal':True}}},
+               '<':{'terminal':True,
+                    '=':{'terminal':True},
+                    '<':{'terminal':True}},
+                '>':{'terminal':True,
+                     '=':{'terminal':True},
+                     '>':{'terminal':True,
+                          '>':{'terminal':True}}}
+               }
+        start = position
         node = fsm
-        for character in operator:
-            if character not in node:
-                node[character] = {}
-            node = node[character]
-        node["terminal"] = {"handler":parse_operator}
-    logging.info("operator fsm="+str(fsm))
-    """
-    fsm = {
-           '!':{'terminal':{'handler':parse_operator}},
-                '=':{'terminal':{'handler':parse_operator},
-                     '=':{'terminal':{'handler':parse_operator}}}},
-           '%':{'terminal':{'handler':parse_operator},
-                '=':{'terminal':{'handler':parse_operator}}},
-           '&':{'terminal':{'handler':parse_operator},
-                '&':{'terminal':{'handler':parse_operator}}},
-           '+':{'terminal':{'handler':parse_operator},
-                '+':{'terminal':{'handler':parse_operator}},
-                '=':{'terminal':{'handler':parse_operator}}},
-           '*':{'terminal':{'handler':parse_operator},
-              '=':{'terminal':{'handler':parse_operator}}},
-           '-':{'terminal':{'handler':parse_operator},
-                '=':{'terminal':{'handler':parse_operator}},
-                '-':{'terminal':{'handler':parse_operator}}},
-           '/':{'terminal':{'handler':parse_operator},
-                '=':{'terminal':{'handler':parse_operator}}},
-           '|':{'terminal':{'handler':parse_operator},
-                '|':{'terminal':{'handler':parse_operator}}},
-           '~':{'terminal':{'handler':parse_operator}},
-           '^':{'terminal':{'handler':parse_operator}},
-           '=':{'terminal':{'handler':parse_operator},
-                '=':{'terminal':{'handler':parse_operator},
-                     '=':{'terminal':{'handler':parse_operator}}}},
-           '<':{'terminal':{'handler':parse_operator},
-                '=':{'terminal':{'handler':parse_operator}},
-                '<':{'terminal':{'handler':parse_operator}}},
-            '>':{'terminal':{'handler':parse_operator},
-                 '=':{'terminal':{'handler':parse_operator}},
-                 '>':{'terminal':{'handler':parse_operator},
-                      '>':{'terminal':{'handler':parse_operator}}}}}
-    start = index
-    node = fsm
-    character = string[index]
-    logging.info("    character='"+str(character)+"'")
-    while index<len(string) and character in node:
-        node = node[character]
-        index += 1
-        character = string[index]
+        character = string[position]
         logging.info("    character='"+str(character)+"'")
-    if "terminal" in node:
-        return {"index":index,"start":start,"string":string[start:index],"type":"operator"}
-    else:
-        return {"index":index,"start":start,"type":"error"}
+        while position<len(string) and character in node:
+            node = node[character]
+            position += 1
+            character = string[position]
+        if "terminal" in node:
+            return {"position":position,"start":start,"string":string[start:position],"type":"operator"}
+        else:
+            return {"position":position,"start":start,"type":"error"}
+    def scan_separator(position):
+        start = position
+        position += 1
+        return {"position":position,"start":start,"string":string[start:position],"type":"separator"}
+    def scan_single_line_comment(position):
+        offset = is_end_of_line(string,position)
+        while position<len(string) and offset==0:
+            position += 1
+            offset = is_end_of_line(string,position)
+        position += offset
+        return {"position":position}
+    def scan_string(position):
+        quote = string[position]
+        start = position
+        position = position+1
+        while position<len(string) and string[position]!=quote:
+            position += 1
+        position +=1
+        return {"position":position,"start":start,"string":string[start:position],"type":"string","value":string[(start+1):(position-1)]}
+    def scan_whitespace(position):
+        position += 1
+        character = string[position]
+        while position<len(string) and is_whitespace(character):
+            position += 1
+            character = string[position]
+        return {"position":position}
 
-def parse_separator(string,index):
-    start = index
-    index += 1
-    return {"index":index,"start":start,"string":string[start:index],"type":"separator"}
-
-def scan(string,index):
     length = len(string)
     fsm = {}
     for char_range in [
-                       {"list":"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ","handler":parse_identifier},
-                       {"list":"\'\"","handler":parse_string},
-                       {"list":"0123456789","handler":parse_number},
-                       {"list":" \n\r\t","handler":eat_whitespace},
-                       {"list":"!%&=-^|@+*<>?/\\","handler":parse_operator},
-                       {"list":",.:;()[]{}","handler":parse_separator}
+                       {"list":"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ","handler":scan_identifier},
+                       {"list":"\'\"","handler":scan_string},
+                       {"list":"0123456789","handler":scan_number},
+                       {"list":" \n\r\t","handler":scan_whitespace},
+                       {"list":"!%&=-^|@+*<>?/\\","handler":scan_operator},
+                       {"list":",.:;()[]{}","handler":scan_separator}
                        ]:
         node = fsm
         for character in char_range["list"]:
@@ -228,8 +183,8 @@ def scan(string,index):
                 node[character] = {}
                 node[character]["terminal"] = {"handler":char_range["handler"]}
     for combination in [
-                        {"string":"//","handler":parse_single_line_comment},
-                        {"string":"/*","handler":parse_multiline_comment},
+                        {"string":"//","handler":scan_single_line_comment},
+                        {"string":"/*","handler":scan_multiline_comment},
                         ]:
         node = fsm
         for character in combination["string"]:
@@ -237,72 +192,59 @@ def scan(string,index):
                 node[character] = {}
             node = node[character]
         node["terminal"] = {"handler":combination["handler"]}
-    tokens = []
-    while index<length:
-        character = string[index]
+
+    while position<len(string):
+        character = string[position]
         if character in fsm:
             node = fsm[character]
-            if index+1<length:
-                lookahead = string[index+1]
+            if position+1<length:
+                lookahead = string[position+1]
                 if lookahead in node:
-                    index += 1
+                    position += 1
                     node = node[lookahead]
             if "terminal" in node:
                 terminal = node["terminal"]
                 if "handler" in terminal:
-                    result = terminal["handler"](string,index)
-                    index = result["index"]
+                    result = terminal["handler"](position)
+                    position = result["position"]
                 if "type" in result:
-                    token = {"type":result["type"],"string":result["string"]}
-                    if "value" in result:
-                        token["value"] = result["value"]
-                    tokens.append(token)
-    return tokens
-        #operator, separator
+                    return result
 def parse(string):
-    tokens = scan(string,0)
-    index = 0
-    while index<len(tokens):
+    def parse_assignment(index,identifier):
+        token = scan(string,index)
+        index=token["position"]
+        logging.info(token)
+        if token["type"]=="number":
+            token = scan(string,index)
+            index=token["position"]
+            logging.info(token)
+            if token["type"]=="separator" and token["string"]==";":
+                logging.info("goal")
+                
         pass
+    global_env = Scope()
+    index = 0
+    while index<len(string):
+        token = scan(string,index)
+        index = token["position"]
+        logging.info(token)
+        if token["type"]=="identifier":
+            if token["string"]=="var":
+                token = scan(string,index)
+                index=token["position"]
+                logging.info(token)
+                if token["type"]=="identifier":
+                    Scope.update({token["string"]:None})
+                    token = scan(string,index)
+                    index=token["position"]
+                    logging.info(token)
+                    if token["type"]=="operator":
+                        if token["string"]=="=":
+                            parse_assignment(index)
+                    return "var defined"
+                    break
 
-def eat_whitespace(string,index):
-    while index<len(string) and is_whitespace(string[index]):
-        index += 1
-    return {"index":index}
-
-def parse_identifier(string,index):
-    start = index
-    index += 1
-    while index<len(string) and is_identifier_char(string[index]):
-        index += 1
-    return {"index":index,"position":start,"string":string[start:index],"type":"identifier","value":string[start:index]}
-
-def is_digit(character):
-    if character in u"0123456789":
-        return True
-    return False
-
-def is_identifier_char(character):
-    if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
-        return True
-    return False
-
-def is_identifier_start(character):
-    if character in u"_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
-        return True
-    return False
-
-def is_whitespace(character):
-    if character in u" \n\r\t":
-        return True
-    return False
-    
-
-class TestHandler(AdminHandler):
-    def scan(self):
-        test_string = "function"
-        
-        
+class TestHandler(AdminHandler):        
     def get(self,**kwargs):
         js_string = """
         // •\Ž¦ƒy[ƒWƒ^ƒCƒvF0:pc  1:sp  2:pctop from sp
@@ -388,6 +330,6 @@ function spClickHandler(){
         #logging.info(T.fsm)            
                 
         #self.response.write(T.fsm)
-        self.context["response"] = scan("_test01 // test3\ntest2\r /* \n test4 * / */   test5='test6 ';",0)
+        self.context["response"] = parse(js_string)
         self.render_response('/javascript-test.html')
         
