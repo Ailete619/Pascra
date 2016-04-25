@@ -30,20 +30,20 @@ textarea
 	<form method="POST">
 		<ul>
 			<li>
-				<label for="fetchURL">{{locale.fetch.url}}</label>
-				<input id="fetchURL" name="fetchURL" {%if url%}value="{{url}}" {% endif %}required="required"/>
+				<label for="sourceURL">{{locale.fetch.url}}</label>
+				<input id="sourceURL" name="sourceURL" {%if url%}value="{{url}}" {% endif %}required="required"/>
 			</li>
 			<li>
-				<label for="fetchOption">{{locale.fetch.option}}</label>
-				<select id="fetchOption" name="fetchOption" required="required">
+				<label for="cacheOption">{{locale.fetch.option}}</label>
+				<select id="cacheOption" name="cacheOption" required="required">
 					<option value="no_cache">{{locale.fetch.no_cache}}</option>
 					<option value="cache" selected="selected">{{locale.fetch.cache}}</option>
 					<option value="update_cache">{{locale.fetch.update_cache}}</option>
 				</select>
 			</li>
 			<li>
-				<label for="fetchEncoding">{{locale.fetch.encoding}}</label>
-				<select id="fetchEncoding" name="fetchEncoding" required="required">
+				<label for="sourceEncoding">{{locale.fetch.encoding}}</label>
+				<select id="sourceEncoding" name="sourceEncoding" required="required">
 				</select>
 			</li>
 			<li>
@@ -66,8 +66,8 @@ textarea
 {% block inline_body_js %}
 	window.addEventListener('load', function ()
 		{
-		selectIfPresent(fetchOption, "cache");
-		fillSelectList('fetchEncoding',encodingList);
-		selectIfPresent(fetchEncoding, "utf_8");
+		selectIfPresent('cacheOption', "cache");
+		fillSelectList('sourceEncoding',encodingList);
+		selectIfPresent('sourceEncoding', "utf_8");
 		}, false);
 {% endblock %}

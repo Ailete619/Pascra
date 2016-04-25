@@ -2,9 +2,8 @@
 
 import ailete619.beakon.handlers
 from fetch import CachedPage
-from google.appengine.api import taskqueue
-from google.appengine.api import urlfetch
-from google.appengine.ext import deferred
+from google.appengine.api import taskqueue, urlfetch
+from google.appengine.ext import deferred, ndb
 from google.appengine.runtime import DeadlineExceededError
 import json
 import logging
@@ -17,6 +16,9 @@ import urllib2
 import urlparse
 import webapp2
 from webapp2_extras import jinja2
+
+class ScrapString(ndb.Model):
+    source = ndb.TextProperty()
 
 class BaseHandler(webapp2.RequestHandler):
     def get(self,**kwargs):
@@ -366,24 +368,34 @@ class SourceHandler(ailete619.beakon.handlers.UserHandler):
     def get(self,**kwargs):
         self.render_response('scrap-source.html')
     def post(self,**kwargs):
-        url = self.request.get("fetchURL")
-        option = self.request.get("fetchOption")
-        encoding = self.request.get("fetchEncoding")
+        url = self.request.get("scrapURL")
+        logging.info(url)
+        option = self.request.get("cacheOption")
+        logging.info(option)
+        encoding = self.request.get("sourceEncoding")
+        logging.info(encoding)
         request = {}
         selectors = self.request.get("scrapSelectors")
+        logging.info(selectors)
         if selectors:
             request["selectors"] = json.loads(selectors)
         tabular_selectors = self.request.get("scrapTabularSelectors")
+        logging.info(tabular_selectors)
         if tabular_selectors:
             request["tabular_selectors"] = json.loads(tabular_selectors)
+        source = None
         if option=="cache":
             cached_page = CachedPage.get_by_id(url)
             if cached_page:
                 source = cached_page.source
         if not source:
             source = self.request.get("scrapSource")
+            logging.info(source)
+            so = ScrapString(source=source)
+            so.put()
+            
             try:
-                source = source.decode(encoding).encode('utf_8')
+                source = so.source.decode(encoding,'ignore')#.encode('utf_8')
             except UnicodeDecodeError:
                 pass
         if option=="force_upgrade" or (option=="cache" and not cached_page):

@@ -127,15 +127,12 @@ function fillSelectList(selectId, data)
 		}
 	select.innerHTML = options;
 	}
-function selectIfPresent(newVal,defaultVal)
+function selectIfPresent(elementName,selectVal)
 	{
-	if(fetchEncoding==undefined)
+	var element = document.getElementById(elementName)
+	if(element!=null)
 		{
-		document.getElementById('fetchEncoding').value = defaultVal;
-		}
-	else
-		{
-		document.getElementById('fetchEncoding').value = newVal;
+		element.value = selectVal
 		}
 	}
 
