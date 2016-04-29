@@ -20,27 +20,10 @@ from webapp2_extras import jinja2
 class ScrapString(ndb.Model):
     source = ndb.TextProperty()
 
-class BaseHandler(webapp2.RequestHandler):
-    def get(self,**kwargs):
-        pass
-    @webapp2.cached_property
-    def jinja2(self):
-        """ Returns a Jinja2 renderer cached in the app registry. """
-        return jinja2.get_jinja2(app=self.app)
-    @classmethod
-    def parse_set_cookie(cls, set_cookie):
-        #logging.info(cls.__name__+".parse_set_cookie("+str(set_cookie)+")")
-        if set_cookie:
-            cookiePairList = [cookiePair.split("=") for cookiePair in set_cookie.split(";")]
-            return {cookiePair[0]:cookiePair[1] for cookiePair in cookiePairList}
-        return {}
-    def post(self,**kwargs):
-        pass
-    def render_response(self, _template, **context):
-        """ Renders a template and writes the result to the response. """
-        rv = self.jinja2.render_template(_template, **context)
-        self.response.write(rv)
+class ScrapingInternalHandler(ailete619.beakon.handlers.TaskHandler):
+    queue_name = "scraping"
     def fetch_page(self, url, option, encoding, method=None, data=None, headers=None):
+        logging.info(self.__class__.__name__+".fetch_page(url='"+str(url)+",option='"+str(option)+",encoding='"+str(encoding)+"method='"+str(method)+"')")
         url_encoded_data = {"url":url,"option":option,"encoding":encoding}
         if data:
             url_encoded_data["data"] = data
@@ -54,40 +37,8 @@ class BaseHandler(webapp2.RequestHandler):
         logging.info("url_encoded_data="+str(url_encoded_data))
         logging.info("https://"+self.request.host+"/fetch")
         return urlfetch.fetch(url="https://"+self.request.host+"/fetch?"+url_encoded_data,method=urlfetch.GET)
-    def send_request(self, url, method=None, data=None, headers=None):
-        # helper function that builds the THHP Requests, send them and return the results
-        http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
-        #
-        #cookie_string = ""
-        #for cookieName, cookieData in self.websiteCookies.iteritems():
-        #    cookie_string += cookieName+"="+cookieData["value"]+";"
-        #if cookie_string:
-        #    headers.update({'Cookie':cookie_string})
-        #
-        if headers:
-            http_headers.update(headers)
-        #
-        logging.info("pd="+str(data))
-        post_data_encoded = None
-        if data:
-            post_data_encoded = urllib.urlencode(data)
-        #
-        if method:
-            if "post":
-                method = urlfetch.POST
-            else:
-                method = urlfetch.GET
-        else:
-            if data:
-                method = urlfetch.POST
-            else:
-                method = urlfetch.GET
-        logging.info("url="+str(url))
-        logging.info("pde="+str(post_data_encoded))
-        logging.info("headers="+str(http_headers))
-        return urlfetch.fetch(url=url,payload=post_data_encoded,method=method,headers=http_headers)
 
-class ListHandler(BaseHandler):
+class ListHandler(ScrapingInternalHandler):
     def login(self, login_request):
         post_data = {login_request["login"]["name"]:login_request["login"]["value"],login_request["password"]["name"]:login_request["password"]["value"]}
         logging.info("login post_data="+str(post_data))
@@ -141,7 +92,7 @@ class ListHandler(BaseHandler):
                     logging.info("r="+str(r))
                     self.response.out.write(r)
         self.response.set_status(200)"""
-class ItemHandler(BaseHandler):
+class ItemHandler(ScrapingInternalHandler):
     @classmethod
     def extract(cls, element, extractor_list):
         if extractor_list:
@@ -170,15 +121,16 @@ class ItemHandler(BaseHandler):
         else:
             return None
     def post(self,**kwargs):
+        logging.info(self.__class__.__name__+".post('"+str(kwargs)+"')")
         request = json.loads(self.request.get("json"))
-        logging.info(request)
+        logging.info("request="+str(request))
         if "for_field" in request:
             self.scrapURLForField(request)
         else:
             self.scrapURLList(request)
     @classmethod
     def selectorScrap(cls,tree,selectors,data_scraps):
-
+        logging.info(cls.__name__+".selectorScrap()")
         for selectorName, selectorData in selectors.iteritems():
             selector = CSSSelector(selectorData["string"])
             if not selectorName in data_scraps:
@@ -198,6 +150,7 @@ class ItemHandler(BaseHandler):
                     selector_scraps.append(result)
             if len(selector_scraps)==1:
                 data_scraps[selectorName]=selector_scraps[0]
+        logging.info("data_scraps="+str(data_scraps))
     @classmethod
     def tabularSelectorScrap(cls,tree,selectors,data_scraps):
         for tabularSelectorName, tabularSelectorData in selectors.iteritems():
@@ -227,6 +180,7 @@ class ItemHandler(BaseHandler):
             cls.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
         return data_scraps
     def scrapURL(self, url, request, encoding=None):
+        logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',encoding='"+str(encoding)+"')")
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
@@ -281,6 +235,7 @@ class ItemHandler(BaseHandler):
                 #url_content = url_content[1:]
         return url_scraps
     def scrapURLList(self,request):
+        logging.info(self.__class__.__name__+".scrapURLList('"+str(request))
         current_url = 0
         item_scraps = {"urls":{}}
         response_headers = {}
@@ -298,42 +253,42 @@ class ItemHandler(BaseHandler):
                 urlList = request["urls"]
             else:
                 item_scraps[key] = value
-        
-        try:
-            i = 0
-            for url in urlList:
-                logging.info(url)
-                current_url += 1;
-                url_string = url["string"]
-                if url_string in item_scraps["urls"]:
-                    urlScraps = item_scraps["urls"][url_string]
-                else:
-                    urlScraps = {}
-                    for key, value in url.iteritems():
-                        if key!="string":
-                            urlScraps[key] = value
-                    item_scraps["urls"][url_string] = urlScraps
-                if "encoding" in url:
-                    encoding = url["encoding"]
-                else:
-                    encoding = None
-                urlScraps.update(self.scrapURL(url["string"],request,encoding=encoding))
-                i += 1
-                if i == 10:
-                    i = 0
+        if urlList:
+            try:
+                i = 0
+                for url in urlList:
+                    logging.info("url="+str(url))
+                    current_url += 1;
+                    url_string = url["string"]
+                    if url_string in item_scraps["urls"]:
+                        urlScraps = item_scraps["urls"][url_string]
+                    else:
+                        urlScraps = {}
+                        for key, value in url.iteritems():
+                            if key!="string":
+                                urlScraps[key] = value
+                        item_scraps["urls"][url_string] = urlScraps
+                    if "encoding" in url:
+                        encoding = url["encoding"]
+                    else:
+                        encoding = None
+                    urlScraps.update(self.scrapURL(url["string"],request,encoding=encoding))
+                    i += 1
+                    if i == 10:
+                        i = 0
+                        self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+                response_headers["edr_eof"] = "True"
+                logging.info(item_scraps)
+                if "response_url" in request:
                     self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
-            response_headers["edr_eof"] = "True"
-            logging.info(item_scraps)
-            if "response_url" in request:
+                else:
+                    self.response.write(json.dumps(item_scraps))
+            except DeadlineExceededError:
+                logging.info("DeadlineExceededError")
+                urls = request["urls"]
+                request["urls"] = urls[current_url:]
                 self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
-            else:
-                self.response.write(json.dumps(item_scraps))
-        except DeadlineExceededError:
-            logging.info("DeadlineExceededError")
-            urls = request["urls"]
-            request["urls"] = urls[current_url:]
-            self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
-            deferred.defer(self.scrapURLList,request)
+                deferred.defer(self.scrapURLList,request)
 
 class WebsiteScraper(object):
     def scrapURLForField(self):

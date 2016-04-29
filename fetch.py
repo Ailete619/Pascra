@@ -4,7 +4,7 @@
 
 @author: ailete619
 '''
-import ailete619.beakon.commands
+import ailete619.beakon.handlers
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 import logging
@@ -112,7 +112,7 @@ class CachedPage(ndb.Model):
     headers = ndb.TextProperty()
     source = ndb.TextProperty()
 
-class Handler(ailete619.beakon.handlers.UserHandler):
+class Handler(ailete619.beakon.handlers.InternalHandler):
     @classmethod
     def fetch(self, url, data=None, method=urlfetch.GET, headers=None):
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
@@ -148,7 +148,7 @@ class Handler(ailete619.beakon.handlers.UserHandler):
                 cached_page = CachedPage.get_by_id(url)
                 if cached_page:
                     logging.info("from cache")
-                    self.response.out.write(cached_page.source)
+                    self.response.write(cached_page.source)
                     return
             response = self.fetch(url=url,data=self.request.get("data"),method=self.request.get("method"),headers=self.request.get("headers"))
             logging.info("status="+str(response.status_code))

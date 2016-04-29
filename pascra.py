@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 import ailete619.beakon.handlers
+import ailete619.beakon.users
 import fetch
 from google.appengine.api import taskqueue
 import jse
@@ -17,12 +18,13 @@ class ScrapingHandler(ailete619.beakon.handlers.BaseHandler):
     def post(self,**kwargs):
         #logging.info(self.request.headers)
         #logging.info(self.request.get("json"))
-        taskqueue.add(url='/internal/list',queue_name='scraping',params={
-                                                                         'referer_url':self.request.url,
-                                                                         'response_cookies':self.request.headers["Set-Cookie"],
-                                                                         'response_url':self.request.headers.get("Referer"),
-                                                                         'json':self.request.get("json")
-                                                                         })
+        parameters = {}
+        parameters['referer_url'] = self.request.url
+        if "Set-Cookie" in self.request.headers:
+            parameters['response_cookies'] = self.request.headers["Set-Cookie"]
+        parameters['response_url'] = self.request.headers.get("Referer")
+        parameters['json'] = self.request.get("json")
+        taskqueue.add(url='/internal/list',queue_name='scraping',params=parameters)
         self.response.set_status(200)
         
 config = {}
