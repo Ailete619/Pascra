@@ -4,7 +4,7 @@
 
 @author: ailete619
 '''
-import ailete619.beakon.handlers
+from ailete619.beakon.handlers import AdminHandler, InternalHandler
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 import logging
@@ -107,12 +107,11 @@ encoding_list = [
                  "utf_8",
                  "utf_8_sig"]
 
-
 class CachedPage(ndb.Model):
     headers = ndb.TextProperty()
     source = ndb.TextProperty()
 
-class Handler(ailete619.beakon.handlers.InternalHandler):
+class Handler(InternalHandler):
     @classmethod
     def fetch(self, url, data=None, method=urlfetch.GET, headers=None):
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
@@ -123,63 +122,44 @@ class Handler(ailete619.beakon.handlers.InternalHandler):
             url_encoded_data = urllib.urlencode(data)
             method = self.request.get("method")
             if (method and method=="POST") or data:
-                logging.info("url="+str(url))
-                logging.info("method="+str(method))
-                logging.info("headers="+str(headers))
-                logging.info("data="+str(url_encoded_data))
                 return urlfetch.fetch(url=url,payload=url_encoded_data,method=urlfetch.POST,headers=http_headers)
             else:
                 url+="?"+url_encoded_data
-        logging.info("url="+str(url))
-        logging.info("method="+str(method))
-        logging.info("headers="+str(headers))
         return urlfetch.fetch(url=url,method=urlfetch.GET,headers=http_headers)
     def get(self):
-        logging.info(self.request.body)
         url = self.request.get("url")
-        logging.info(url)
         option = self.request.get("option")
-        logging.info(option)
         encoding = self.request.get("encoding")
         logging.info(encoding)
         if url:
             if option=="cache":
-                logging.info("cached?")
                 cached_page = CachedPage.get_by_id(url)
                 if cached_page:
-                    logging.info("from cache")
                     self.response.write(cached_page.source)
                     return
             response = self.fetch(url=url,data=self.request.get("data"),method=self.request.get("method"),headers=self.request.get("headers"))
-            logging.info("status="+str(response.status_code))
-            logging.info("content="+str(response.content))
             if response.status_code==200:
-                logging.info("not from cache")
                 try:
                     source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
                 except UnicodeDecodeError:
-                    logging.info("utf-8 not")
                     for encoding in encoding_list:
                         try:
                             source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
-                            logging.info(encoding)
                             break
                         except UnicodeDecodeError:
                             pass
                         
                 if option!="no_cache":
-                    logging.info("to cache")
-                    cached_page = CachedPage(id=url,source=source)
+                    cached_page = CachedPage(id=url,source=source,headers=str(response.headers))
                     cached_page.put()
                 self.response.out.write(source)
             else:
                 self.error(response.status_code)
                 self.response.out.write(response.content)
         else:
-            self.error(404)
-            self.response.out.write('Page Not Found!')
+            self.abort(404)
 
-class CacheDeleteHandler(ailete619.beakon.handlers.AdminHandler):
+class CacheDeleteHandler(AdminHandler):
     def get(self,**kwargs):
         self.render_response('cache-delete.html')
     def post(self,**kwargs):
@@ -192,7 +172,7 @@ class CacheDeleteHandler(ailete619.beakon.handlers.AdminHandler):
             self.context["message"] = "not_found"
         self.render_response('cache-delete.html')
         
-class TestHandler(ailete619.beakon.handlers.AdminHandler):
+class TestHandler(AdminHandler):
     def get(self,**kwargs):
         self.render_response('fetch-test.html')
     def post(self,**kwargs):

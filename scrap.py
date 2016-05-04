@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import ailete619.beakon.handlers
+from ailete619.beakon import cookiejar
 from fetch import CachedPage
 from google.appengine.api import taskqueue, urlfetch
 from google.appengine.ext import deferred, ndb
@@ -22,21 +23,15 @@ class ScrapString(ndb.Model):
 
 class ScrapingInternalHandler(ailete619.beakon.handlers.TaskHandler):
     queue_name = "scraping"
-    def fetch_page(self, url, option, encoding, method=None, data=None, headers=None):
-        logging.info(self.__class__.__name__+".fetch_page(url='"+str(url)+",option='"+str(option)+",encoding='"+str(encoding)+"method='"+str(method)+"')")
-        url_encoded_data = {"url":url,"option":option,"encoding":encoding}
-        if data:
-            url_encoded_data["data"] = data
+    def fetch_page(self, url, option, encoding, data=None, headers=None):
+        logging.info(self.__class__.__name__+".fetch_page(url='"+str(url)+"',option='"+str(option)+"',encoding='"+str(encoding)+"')")
+        fetch_data = {"url":url,"option":option,"encoding":encoding}
         if headers:
-            url_encoded_data["headers"] = headers
-        if method:
-            url_encoded_data["method"] = method
-        if url:
-            url_encoded_data["url"] = url
-        url_encoded_data = urllib.urlencode(url_encoded_data)
-        logging.info("url_encoded_data="+str(url_encoded_data))
-        logging.info("https://"+self.request.host+"/fetch")
-        return urlfetch.fetch(url="https://"+self.request.host+"/fetch?"+url_encoded_data,method=urlfetch.GET)
+            fetch_data["headers"] = headers
+        if data:
+            fetch_data["data"] = data
+        fetch_url = "https://"+self.request.host+"/fetch"
+        return self.send_request(url=fetch_url,method=urlfetch.GET,data=fetch_data)
 
 class ListHandler(ScrapingInternalHandler):
     def login(self, login_request):
@@ -49,7 +44,7 @@ class ListHandler(ScrapingInternalHandler):
         logging.info(response.content)
         if response.status_code == 200:
             if "Set-Cookie" in response.headers:
-                cookie = self.parse_set_cookie(response.headers["Set-Cookie"])
+                cookie = cookiejar.get_cookies(response.headers)
                 if cookie:
                     self.websiteCookies.update(cookie)
                 return True
@@ -57,7 +52,6 @@ class ListHandler(ScrapingInternalHandler):
     def post(self,**kwargs):
         request_info = {}
         request_info["referer_url"] = self.request.get("referer_url")
-        request_info["response_cookies"] = self.request.get("response_cookies")
         request_info["response_url"] = self.request.get("response_url")
         scraping_request = json.loads(self.request.get("json"))
         logging.info(scraping_request)
@@ -179,12 +173,13 @@ class ItemHandler(ScrapingInternalHandler):
         if "tabular_selectors" in request:
             cls.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
         return data_scraps
-    def scrapURL(self, url, request, encoding=None):
-        logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',encoding='"+str(encoding)+"')")
+    def scrapURL(self, url, request, option="cache", encoding="utf_8"):
+        logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',option='"+option+"',encoding='"+str(encoding)+"')")
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
-        response = self.fetch_page(url=url,option="cache",encoding="utf_8",data=post_data)
+        response = self.fetch_page(url=url,option=option,encoding=encoding,data=post_data)
+        logging.info("scrapURL: self.fetch_page(url='"+url+"',option='"+option+"',encoding='"+str(encoding)+"',data="+str(post_data)+")="+str(response.status_code))
         url_scraps = {}
         url_scraps["status"] = response.status_code
         if response.status_code == 200:
@@ -233,6 +228,7 @@ class ItemHandler(ScrapingInternalHandler):
                     self.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
                 del url_content[0]
                 #url_content = url_content[1:]
+        logging.info("scrapURL: return "+str(url_scraps))
         return url_scraps
     def scrapURLList(self,request):
         logging.info(self.__class__.__name__+".scrapURLList('"+str(request))
@@ -243,8 +239,6 @@ class ItemHandler(ScrapingInternalHandler):
         for key, value in request.iteritems():
             if key=="referer_url":
                 response_headers["Referer"] = request["referer_url"]
-            elif key=="response_cookies":
-                response_headers["Cookie"] = request["response_cookies"]
             elif key=="selectors":
                 pass
             elif key=="tabular_selectors":
@@ -270,24 +264,28 @@ class ItemHandler(ScrapingInternalHandler):
                         item_scraps["urls"][url_string] = urlScraps
                     if "encoding" in url:
                         encoding = url["encoding"]
+                    elif "encoding" in request:
+                        encoding = request["encoding"]
                     else:
-                        encoding = None
-                    urlScraps.update(self.scrapURL(url["string"],request,encoding=encoding))
+                        encoding = "utf_8"
+                    urlScraps.update(self.scrapURL(url=url["string"],request=request,encoding=encoding))
                     i += 1
                     if i == 10:
                         i = 0
-                        self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
-                response_headers["edr_eof"] = "True"
-                logging.info(item_scraps)
+                        self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
+                logging.info("scrapURL: item_scraps="+str(item_scraps))
                 if "response_url" in request:
-                    self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+                    logging.info("scrapURL: response_url="+str(request["response_url"]))
+                    logging.info("scrapURL: response_headers="+str(response_headers))
+                    self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
                 else:
+                    logging.info("scrapURL: no response_url!")
                     self.response.write(json.dumps(item_scraps))
             except DeadlineExceededError:
                 logging.info("DeadlineExceededError")
                 urls = request["urls"]
                 request["urls"] = urls[current_url:]
-                self.send_request(url=request["response_url"],data={"json":json.dumps(item_scraps)},headers=response_headers)
+                self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
                 deferred.defer(self.scrapURLList,request)
 
 class WebsiteScraper(object):
@@ -381,7 +379,7 @@ class TestHandler(ailete619.beakon.handlers.AdminHandler):
         tabular_selectors = self.request.get("scrapTabularSelectors")
         if tabular_selectors:
             request["tabular_selectors"] = json.loads(tabular_selectors)
-        self.context["response"] = unicode(urlfetch.fetch(url="https://"+self.request.host+"/internal/item",payload=urllib.urlencode({"json":json.dumps(request)}),method=urlfetch.POST).content,'unicode-escape')
+        self.context["response"] = unicode(self.send_request(url="https://"+self.request.host+"/internal/item",data={"json":json.dumps(request)},method=urlfetch.POST).content,'unicode-escape')
         self.context["url_list"] = url_list
         self.context["js"] = {}
         self.context["js"]["fetchOption"] = '"'+option+'"'

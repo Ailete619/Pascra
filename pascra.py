@@ -47,7 +47,7 @@ app = webapp2.WSGIApplication([
                                webapp2.Route('/scrap/help', scrap.HelpHandler),
                                webapp2.Route('/users/access/denied', ailete619.beakon.users.AccessDeniedHandler),
                                webapp2.Route('/users/delete', ailete619.beakon.users.DeleteHandler),
-                               webapp2.Route('/users/google/signin', ailete619.beakon.users.GoogleSignInHandler),
+                               webapp2.Route('/users/google/admin/signup', ailete619.beakon.users.GoogleAdminSignUpHandler),
                                webapp2.Route('/users/list', ailete619.beakon.users.ListHandler),
                                webapp2.Route('/users/edit', ailete619.beakon.users.EditHandler),
                                webapp2.Route('/users/signin', ailete619.beakon.users.SignInHandler),
