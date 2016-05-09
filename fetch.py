@@ -129,8 +129,9 @@ class Handler(InternalHandler):
     def get(self):
         url = self.request.get("url")
         option = self.request.get("option")
+        logging.info("Fetch: option="+option)
         encoding = self.request.get("encoding")
-        logging.info(encoding)
+        logging.info("Fetch: encoding="+encoding)
         if url:
             if option=="cache":
                 cached_page = CachedPage.get_by_id(url)
@@ -140,11 +141,11 @@ class Handler(InternalHandler):
             response = self.fetch(url=url,data=self.request.get("data"),method=self.request.get("method"),headers=self.request.get("headers"))
             if response.status_code==200:
                 try:
-                    source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
+                    source = response.content.decode(encoding)#.encode('utf_8').decode('unicode-escape')
                 except UnicodeDecodeError:
                     for encoding in encoding_list:
                         try:
-                            source = response.content.decode(encoding).encode('utf_8').decode('unicode-escape')
+                            source = response.content.decode(encoding)#.encode('utf_8').decode('unicode-escape')
                             break
                         except UnicodeDecodeError:
                             pass

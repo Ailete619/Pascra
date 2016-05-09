@@ -174,7 +174,7 @@ class ItemHandler(ScrapingInternalHandler):
             cls.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
         return data_scraps
     def scrapURL(self, url, request, option="cache", encoding="utf_8"):
-        logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',option='"+option+"',encoding='"+str(encoding)+"')")
+        #logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',option='"+option+"',encoding='"+str(encoding)+"')")
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
@@ -200,7 +200,7 @@ class ItemHandler(ScrapingInternalHandler):
                 #logging.info("len url_content="+str(len(url_content)))
                 #logging.info("multipart_loaded="+str(multipart_loaded))
                 if "multipart" in request and multipart_loaded==False:
-                    logging.info("multipart="+request["multipart"])
+                    logging.info("multipart="+str(request["multipart"]))
                     selector = CSSSelector(request["multipart"])
                     for page_link in selector(tree):
                         #logging.info("multipart")
@@ -231,7 +231,7 @@ class ItemHandler(ScrapingInternalHandler):
         logging.info("scrapURL: return "+str(url_scraps))
         return url_scraps
     def scrapURLList(self,request):
-        logging.info(self.__class__.__name__+".scrapURLList('"+str(request))
+        #logging.info(self.__class__.__name__+".scrapURLList('"+str(request))
         current_url = 0
         item_scraps = {"urls":{}}
         response_headers = {}
@@ -268,11 +268,18 @@ class ItemHandler(ScrapingInternalHandler):
                         encoding = request["encoding"]
                     else:
                         encoding = "utf_8"
-                    urlScraps.update(self.scrapURL(url=url["string"],request=request,encoding=encoding))
+                    if "option" in url:
+                        option = url["option"]
+                    elif "option" in request:
+                        option = request["option"]
+                    else:
+                        option = "cache"
+                    urlScraps.update(self.scrapURL(url=url["string"],request=request,encoding=encoding,option=option))
                     i += 1
                     if i == 10:
                         i = 0
                         self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
+                        item_scraps["urls"] = {}
                 logging.info("scrapURL: item_scraps="+str(item_scraps))
                 if "response_url" in request:
                     logging.info("scrapURL: response_url="+str(request["response_url"]))
