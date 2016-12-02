@@ -51,9 +51,24 @@
 				{% endblock %}
 			</article>
 		</div>
+		<div id="message_log" class="modalDialog">
+			<div>
+				<a href="#close" title="Close" class="close">X</a>
+				<div class="content">
+					<ul class="log">
+					{% for message in log.message_log %}
+						<li class="{{message.type}}"><span class="timestamp">{{message.timestamp}}</span><span class="message">{{message.text}}</span></li>
+					{% endfor %}
+					</ul>
+	        	</div>
+	        </div>
+		</div>
 		<script type="text/javascript">
 			{% block inline_body_js %}
 			{% endblock %}
 		</script>
+		<footer>
+			<a href="#message_log">Log</a>
+		</footer>
 	</body>
 </html>

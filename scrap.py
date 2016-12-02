@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import ailete619.beakon.handlers
-from ailete619.beakon import cookiejar
+from ailete619.beakon import cookiejar, handlers, log
 from fetch import CachedPage
 from google.appengine.api import taskqueue, urlfetch
 from google.appengine.ext import deferred, ndb
@@ -10,21 +9,29 @@ import json
 import logging
 from lxml import etree
 from lxml.cssselect import CSSSelector
-from lxml.html import parse, fromstring
-import re
-import urllib
-import urllib2
+import secrets
 import urlparse
-import webapp2
-from webapp2_extras import jinja2
 
 class ScrapString(ndb.Model):
     source = ndb.TextProperty()
 
-class ScrapingInternalHandler(ailete619.beakon.handlers.TaskHandler):
+class ScrapingHandler(handlers.WithoutSessionHandler):
+    def post(self):
+        parameters = {}
+        log.info(self.request.get("json"))
+        parameters['referer_url'] = self.request.url
+        if "Set-Cookie" in self.request.headers:
+            parameters['response_cookies'] = self.request.headers["Set-Cookie"]
+        parameters['response_url'] = self.request.headers.get("Referer")
+        parameters['json'] = self.request.get("json")
+        logging.info(json.dumps(parameters))
+        taskqueue.add(url='/internal/list',queue_name='scraping',params=parameters)
+        self.response.set_status(200)
+        
+class ScrapingInternalHandler(handlers.TaskHandler):
     queue_name = "scraping"
     def fetch_page(self, url, option, encoding, data=None, headers=None):
-        logging.info(self.__class__.__name__+".fetch_page(url='"+str(url)+"',option='"+str(option)+"',encoding='"+str(encoding)+"')")
+        log.info(self.__class__.__name__+".fetch_page(url='"+str(url)+"',option='"+str(option)+"',encoding='"+str(encoding)+"')")
         fetch_data = {"url":url,"option":option,"encoding":encoding}
         if headers:
             fetch_data["headers"] = headers
@@ -36,12 +43,12 @@ class ScrapingInternalHandler(ailete619.beakon.handlers.TaskHandler):
 class ListHandler(ScrapingInternalHandler):
     def login(self, login_request):
         post_data = {login_request["login"]["name"]:login_request["login"]["value"],login_request["password"]["name"]:login_request["password"]["value"]}
-        logging.info("login post_data="+str(post_data))
-        logging.info("login fields="+str(login_request["fields"]))
+        log.info("login post_data="+str(post_data))
+        log.info("login fields="+str(login_request["fields"]))
         post_data.update(login_request["fields"])
         response = self.send_request(url=login_request["url"],data=login_request)
-        logging.info("login headers="+str(response.headers))
-        logging.info(response.content)
+        log.info("login headers="+str(response.headers))
+        log.info(response.content)
         if response.status_code == 200:
             if "Set-Cookie" in response.headers:
                 cookie = cookiejar.get_cookies(response.headers)
@@ -50,18 +57,20 @@ class ListHandler(ScrapingInternalHandler):
                 return True
         return False
     def post(self,**kwargs):
+        log.info("list handler POST")
+        log.info("kwrags="+str(kwargs))
         request_info = {}
         request_info["referer_url"] = self.request.get("referer_url")
         request_info["response_url"] = self.request.get("response_url")
         scraping_request = json.loads(self.request.get("json"))
-        logging.info(scraping_request)
+        log.info(scraping_request)
         scrap_list = []
         if "login" in scraping_request:
-            logging.info("login")
-            logging.info(scraping_request["login"])
+            log.info("login")
+            log.info(scraping_request["login"])
         for key, value in scraping_request.iteritems():
             if key=="login":
-                logging.info("login")
+                log.info("login")
                 request_info["login_cookies"] = self.login(value)
             elif key=="scrap_list":
                 scrap_list = value
@@ -83,7 +92,7 @@ class ListHandler(ScrapingInternalHandler):
                 r = self.scrapURLList()
                 if r:
                     r = json.dumps(r)
-                    logging.info("r="+str(r))
+                    log.info("r="+str(r))
                     self.response.out.write(r)
         self.response.set_status(200)"""
 class ItemHandler(ScrapingInternalHandler):
@@ -92,7 +101,6 @@ class ItemHandler(ScrapingInternalHandler):
         if extractor_list:
             scraps = {}
             for extractor in extractor_list:
-                logging.info(extractor)
                 if extractor["type"]=="html":
                     scraps[extractor["type"]] = etree.tostring(element, method='html', encoding="utf-8")
                 elif extractor["type"]=="text":
@@ -103,28 +111,25 @@ class ItemHandler(ScrapingInternalHandler):
                     if extractor["name"] in element.attrib:
                         scraps[extractor["type"]] = element.attrib[extractor["name"]]
                     else:
-                        logging.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no attribute '"+extractor["name"]+"' !")
+                        log.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no attribute '"+extractor["name"]+"' !")
                 elif extractor["type"]=="method":
                     if extractor["name"]=="text":
                         scraps[extractor["type"]] = element.text
                     else:
-                        logging.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no method '"+extractor["name"]+"' !")
+                        log.warning(etree.tostring(element, method='text', encoding="utf-8")+" has no method '"+extractor["name"]+"' !")
                 else:
                     scraps[extractor["type"]] = etree.tostring(element, method='html', encoding="utf-8")
             return scraps
         else:
             return None
-    def post(self,**kwargs):
-        logging.info(self.__class__.__name__+".post('"+str(kwargs)+"')")
+    def post(self):
         request = json.loads(self.request.get("json"))
-        logging.info("request="+str(request))
         if "for_field" in request:
             self.scrapURLForField(request)
         else:
             self.scrapURLList(request)
     @classmethod
     def selectorScrap(cls,tree,selectors,data_scraps):
-        logging.info(cls.__name__+".selectorScrap()")
         for selectorName, selectorData in selectors.iteritems():
             selector = CSSSelector(selectorData["string"])
             if not selectorName in data_scraps:
@@ -134,7 +139,6 @@ class ItemHandler(ScrapingInternalHandler):
                 selector_scraps = data_scraps[selectorName]
             for dataItem in selector(tree):
                 result = cls.extract(dataItem, selectorData["extractors"])
-                #logging.info(selectorData["string"]+" = "+str(result))
                 if len(result)==1:
                     result = result.values()[0]
                 if result:
@@ -144,7 +148,6 @@ class ItemHandler(ScrapingInternalHandler):
                     selector_scraps.append(result)
             if len(selector_scraps)==1:
                 data_scraps[selectorName]=selector_scraps[0]
-        logging.info("data_scraps="+str(data_scraps))
     @classmethod
     def tabularSelectorScrap(cls,tree,selectors,data_scraps):
         for tabularSelectorName, tabularSelectorData in selectors.iteritems():
@@ -161,7 +164,7 @@ class ItemHandler(ScrapingInternalHandler):
                         dataItem = cellSelector(rowData)[0]
                         result = cls.extract(dataItem, cellSelectorData["extractors"])
                     else:
-                        logging.info(cellSelectorData["string"]+"->"+str(cellData))
+                        log.info(cellSelectorData["string"]+"->"+str(cellData))
                     rowScraps.append(result)
     @classmethod
     def scrapSource(cls, source, request, encoding=None):
@@ -174,12 +177,10 @@ class ItemHandler(ScrapingInternalHandler):
             cls.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
         return data_scraps
     def scrapURL(self, url, request, option="cache", encoding="utf_8"):
-        #logging.info(self.__class__.__name__+".scrapURL(url='"+str(url)+"',request='"+str(request)+"',option='"+option+"',encoding='"+str(encoding)+"')")
         post_data = {}
         if "fields" in request:
             post_data.update(request["fields"])
         response = self.fetch_page(url=url,option=option,encoding=encoding,data=post_data)
-        logging.info("scrapURL: self.fetch_page(url='"+url+"',option='"+option+"',encoding='"+str(encoding)+"',data="+str(post_data)+")="+str(response.status_code))
         url_scraps = {}
         url_scraps["status"] = response.status_code
         if response.status_code == 200:
@@ -197,13 +198,9 @@ class ItemHandler(ScrapingInternalHandler):
             while (len(url_content)>0):
                 tree = etree.fromstring(url_content[0], parser)
                 # extract the data for all the css selectors on the page
-                #logging.info("len url_content="+str(len(url_content)))
-                #logging.info("multipart_loaded="+str(multipart_loaded))
                 if "multipart" in request and multipart_loaded==False:
-                    logging.info("multipart="+str(request["multipart"]))
                     selector = CSSSelector(request["multipart"])
                     for page_link in selector(tree):
-                        #logging.info("multipart")
                         next_url = self.extract(page_link, [{"type":"attribute","name":"href"}])
                         if next_url:
                             next_url = next_url["attribute"]
@@ -212,26 +209,21 @@ class ItemHandler(ScrapingInternalHandler):
                         post_data = {}
                         if "fields" in request:
                             post_data.update(request["fields"])
-                            #logging.info("post_data="+str(post_data))
                         part_loaded = False
                         while part_loaded==False:
                             response = self.fetch_page(url=url,option="cache",encoding="utf_8",data=post_data)
                             if response.status_code == 200:
                                 url_content.append(response.content)
                                 part_loaded = True
-                    #logging.info("len url_content="+str(len(url_content)))
-                    #logging.info("url_content="+str(url_content))
                     multipart_loaded = True
                 if "selectors" in request:
                     self.selectorScrap(tree,request["selectors"],data_scraps)
                 if "tabular_selectors" in request:
                     self.tabularSelectorScrap(tree,request["tabular_selectors"],data_scraps)
                 del url_content[0]
-                #url_content = url_content[1:]
-        logging.info("scrapURL: return "+str(url_scraps))
         return url_scraps
     def scrapURLList(self,request):
-        #logging.info(self.__class__.__name__+".scrapURLList('"+str(request))
+        logging.info(request)
         current_url = 0
         item_scraps = {"urls":{}}
         response_headers = {}
@@ -251,7 +243,7 @@ class ItemHandler(ScrapingInternalHandler):
             try:
                 i = 0
                 for url in urlList:
-                    logging.info("url="+str(url))
+                    log.info("url="+str(url))
                     current_url += 1;
                     url_string = url["string"]
                     if url_string in item_scraps["urls"]:
@@ -276,23 +268,25 @@ class ItemHandler(ScrapingInternalHandler):
                         option = "cache"
                     urlScraps.update(self.scrapURL(url=url["string"],request=request,encoding=encoding,option=option))
                     i += 1
-                    if i == 10:
-                        i = 0
-                        self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
-                        item_scraps["urls"] = {}
-                logging.info("scrapURL: item_scraps="+str(item_scraps))
-                if "response_url" in request:
-                    logging.info("scrapURL: response_url="+str(request["response_url"]))
-                    logging.info("scrapURL: response_headers="+str(response_headers))
-                    self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
+                    logging.info(request["response_url"])
+                    if "response_url" in request and request["response_url"]:
+                        if i == 10:
+                            i = 0
+                            response = self.send_request(url=request["response_url"],method=urlfetch.POST,data={"login":secrets.login_sources,"password":secrets.password_sources,"json":json.dumps(item_scraps)},headers=response_headers)
+                            logging.info(response.status_code)
+                            item_scraps["urls"] = {}
+                logging.info(request["response_url"])
+                if "response_url" in request and request["response_url"]:
+                    response = self.send_request(url=request["response_url"],method=urlfetch.POST,data={"login":secrets.login_sources,"password":secrets.password_sources,"json":json.dumps(item_scraps)},headers=response_headers)
+                    logging.info(response.status_code)
+                    logging.info(response.content)
                 else:
-                    logging.info("scrapURL: no response_url!")
                     self.response.write(json.dumps(item_scraps))
             except DeadlineExceededError:
-                logging.info("DeadlineExceededError")
+                log.info("DeadlineExceededError")
                 urls = request["urls"]
                 request["urls"] = urls[current_url:]
-                self.send_request(url=request["response_url"],method=urlfetch.POST,data={"json":json.dumps(item_scraps)},headers=response_headers)
+                self.send_request(url=request["response_url"],method=urlfetch.POST,data={"login":secrets.login_sources,"password":secrets.password_sources,"json":json.dumps(item_scraps)},headers=response_headers)
                 deferred.defer(self.scrapURLList,request)
 
 class WebsiteScraper(object):
@@ -320,27 +314,27 @@ class WebsiteScraper(object):
         self.send_response()
         self.scrap_list = self.scrap_list[1:]
 
-class HelpHandler(ailete619.beakon.handlers.UserHandler):
+class HelpHandler(handlers.UserHandler):
     def get(self,**kwargs):
         self.render_response('scrap-help.html')
 
-class SourceHandler(ailete619.beakon.handlers.UserHandler):
+class SourceHandler(handlers.UserHandler):
     def get(self,**kwargs):
         self.render_response('scrap-source.html')
     def post(self,**kwargs):
         url = self.request.get("scrapURL")
-        logging.info(url)
+        log.info(url)
         option = self.request.get("cacheOption")
-        logging.info(option)
+        log.info(option)
         encoding = self.request.get("sourceEncoding")
-        logging.info(encoding)
+        log.info(encoding)
         request = {}
         selectors = self.request.get("scrapSelectors")
-        logging.info(selectors)
+        log.info(selectors)
         if selectors:
             request["selectors"] = json.loads(selectors)
         tabular_selectors = self.request.get("scrapTabularSelectors")
-        logging.info(tabular_selectors)
+        log.info(tabular_selectors)
         if tabular_selectors:
             request["tabular_selectors"] = json.loads(tabular_selectors)
         source = None
@@ -350,7 +344,7 @@ class SourceHandler(ailete619.beakon.handlers.UserHandler):
                 source = cached_page.source
         if not source:
             source = self.request.get("scrapSource")
-            logging.info(source)
+            log.info(source)
             so = ScrapString(source=source)
             so.put()
             
@@ -371,7 +365,7 @@ class SourceHandler(ailete619.beakon.handlers.UserHandler):
         self.context["tabular_selectors"] = tabular_selectors
         self.render_response('scrap-source.html')
 
-class TestHandler(ailete619.beakon.handlers.AdminHandler):
+class TestHandler(handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('scrap-test.html')
     def post(self,**kwargs):

@@ -4,10 +4,9 @@
 
 @author: ailete619
 '''
-from ailete619.beakon.handlers import AdminHandler, InternalHandler
+from ailete619.beakon import handlers, log
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
-import logging
 import urllib
 
 encoding_list = [
@@ -111,7 +110,7 @@ class CachedPage(ndb.Model):
     headers = ndb.TextProperty()
     source = ndb.TextProperty()
 
-class Handler(InternalHandler):
+class Handler(handlers.InternalHandler):
     @classmethod
     def fetch(self, url, data=None, method=urlfetch.GET, headers=None):
         http_headers = {'Content-Type': 'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'}
@@ -128,10 +127,11 @@ class Handler(InternalHandler):
         return urlfetch.fetch(url=url,method=urlfetch.GET,headers=http_headers)
     def get(self):
         url = self.request.get("url")
+        log.info("Fetch: url="+url)
         option = self.request.get("option")
-        logging.info("Fetch: option="+option)
+        log.info("Fetch: option="+option)
         encoding = self.request.get("encoding")
-        logging.info("Fetch: encoding="+encoding)
+        log.info("Fetch: encoding="+encoding)
         if url:
             if option=="cache":
                 cached_page = CachedPage.get_by_id(url)
@@ -160,7 +160,7 @@ class Handler(InternalHandler):
         else:
             self.abort(404)
 
-class CacheDeleteHandler(AdminHandler):
+class CacheDeleteHandler(handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('cache-delete.html')
     def post(self,**kwargs):
@@ -173,7 +173,7 @@ class CacheDeleteHandler(AdminHandler):
             self.context["message"] = "not_found"
         self.render_response('cache-delete.html')
         
-class TestHandler(AdminHandler):
+class TestHandler(handlers.AdminHandler):
     def get(self,**kwargs):
         self.render_response('fetch-test.html')
     def post(self,**kwargs):

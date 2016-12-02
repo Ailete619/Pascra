@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>PASCRA HTTP Error</title>
+		<link rel="TICA Test icon" href="/images/favicon.ico" type="image/x-icon"/>
+		<style type="text/css">
+			body,
+			html
+				{
+				background-color: #ffffff;
+				color: #000000;
+				font-family: Verdana, Geneva, sans-serif;
+				font-size: small;
+				margin: 0;
+				height: 100%;
+				padding: 0;
+				}
+			h1,
+			h2,
+			table th
+				{
+				background-color: rgb(15,128,255);
+				color: #ffffff;
+				}
+			article
+				{
+				display: flex;
+				flex-direction: column;
+				justify-content: start;
+				min-height: 100%;
+				}
+			h1,
+			h2,
+			img
+				{
+				margin: 0 auto;
+				}
+			h1
+				{
+				display: flex;
+				font-size: 2.4em;
+				justify-content: center;
+				padding: 0.5em;
+				width: 100%;
+				}
+			h2,
+			table
+				{
+				width: 100%;
+				}
+			h2,
+			td,
+			th
+				{
+				padding:0 0.5em
+				}
+			#title
+				{
+				flex-grow: 1;
+				margin-left: 1em;
+				}
+			#message
+				{
+				font-size: large;
+				padding: 0.5em;
+				text-align: center;
+				}
+			table
+				{
+				border-collapse: collapse;
+				margin-bottom: 1em;
+				}
+			table,
+			td
+				{
+				border-color: rgb(15,128,255);
+				border-style: solid; 
+				border-width: 1px; 
+ 				}
+			td
+				{
+				vertical-align: top;
+				}
+			td:nth-child(2)
+				{
+				text-align: right;
+				width: 3em;
+				}
+			#log tr.debug
+				{
+				background-color: rgba(0,0,0,0.9);
+				color: rgba(0,255,0,0.9);
+				}
+			#log tr.error
+				{
+				background-color: rgba(203,0,0,0.3);
+				}
+			#log tr.warning
+				{
+				background-color: rgba(255,102,0,0.3);
+				}
+		</style>
+	</head>
+ 	<body>
+ 		<article>
+	 		<h1><span id="code">{{code}}</span><span id="title">{{title}}</span></h1>
+	 		<div id="message">{{message}}</div>
+	 		<h2>Log</h2>
+	 		<table id="log">
+	 			<thead>
+	 				<tr>
+	 					<th>Type</th>
+	 					<th>Timestamp</th>
+	 					<th>Message</th>
+	 				</tr>
+	 			</thead>
+	 			<tbody>
+		 		{% for message in log.message_log|sort(reverse = True) %}
+		 			<tr class="{{message.type}}">
+		 				<td class="timestamp">{{message.type}}</td>
+		 				<td class="timestamp">{{message.timestamp}}</td>
+		 				<td class="message">{{message.text}}</td>
+		 			</tr>
+		 		{% endfor %}
+	 			</tbody>
+	 		</table>
+	 		<h2>Traceback</h2>
+	 		<table id="traceback">
+	 			<thead>
+	 				<tr>
+	 					<th>Filename</th>
+	 					<th>Line</th>
+	 					<th>Function</th>
+	 					<th>Source</th>
+	 				</tr>
+	 			</thead>
+	 			<tbody>
+		 		{% for row in traceback %}
+		 			<tr>
+		 			{% for item in row %}
+		 				<td>{{item}}</td>
+		 			{% endfor %}
+		 			</tr>
+		 		{% endfor %}
+	 			</tbody>
+	 		</table>
+	 		<h2>Stack</h2>
+	 		<table id="stack">
+	 			<thead>
+	 				<tr>
+	 					<th>Filename</th>
+	 					<th>Line</th>
+	 					<th>Function</th>
+	 					<th>Source</th>
+	 				</tr>
+	 			</thead>
+	 			<tbody>
+		 		{% for row in stack %}
+		 			<tr>
+		 			{% for item in row %}
+		 				<td>{{item}}</td>
+		 			{% endfor %}
+		 			</tr>
+		 		{% endfor %}
+	 			</tbody>
+	 		</table>
+ 		</article>
+	</body>
+</html>
